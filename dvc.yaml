@@ -1,0 +1,38 @@
+stages:
+  prepare:
+    cmd: python src/prepare.py
+    deps:
+    - src/prepare.py
+    - params.yaml
+    - data/raw/power_tetouan_city_modified.csv    
+    outs:
+    - data/interim/modified_clean.parquet    
+    - reports/eda_prepare.json
+  featurize:
+    cmd: python src/featurize.py
+    deps:
+    - src/featurize.py
+    - params.yaml
+    - data/interim/modified_clean.parquet    
+    - reports/eda_prepare.json
+    outs:
+    - data/processed/modified_processed.parquet
+    - data/processed/meta.json
+  train:
+    cmd: python src/train.py
+    deps:
+    - src/train.py
+    - params.yaml
+    - data/processed/modified_processed.parquet    
+    - data/processed/meta.json
+    outs:
+    - models/
+    metrics:
+    - reports/model_metrics.csv
+  evaluate:
+    cmd: python src/evaluate.py
+    deps:
+    - src/evaluate.py
+    - reports/model_metrics.csv
+    outs:
+    - reports/figures/rmse_by_model.png

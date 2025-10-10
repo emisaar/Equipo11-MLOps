@@ -1,0 +1,99 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: python src/prepare.py
+    deps:
+    - path: data/raw/power_tetouan_city_modified.csv
+      hash: md5
+      md5: 877912f20b66bcc5a56223d31d788164
+      size: 4564430
+    - path: params.yaml
+      hash: md5
+      md5: fcb09abb6d029a9459cc332f634513a0
+      size: 427
+    - path: src/prepare.py
+      hash: md5
+      md5: 967c88bb61ec7e2e6043a43e0dcfa4e7
+      size: 1922
+    outs:
+    - path: data/interim/modified_clean.parquet
+      hash: md5
+      md5: a369109ba5b9e37c1c9c4a9cd7a2601f
+      size: 1977742
+    - path: reports/eda_prepare.json
+      hash: md5
+      md5: 93863e2d7374f894735a1f4604c31350
+      size: 310
+  featurize:
+    cmd: python src/featurize.py
+    deps:
+    - path: data/interim/modified_clean.parquet
+      hash: md5
+      md5: a369109ba5b9e37c1c9c4a9cd7a2601f
+      size: 1977742
+    - path: params.yaml
+      hash: md5
+      md5: fcb09abb6d029a9459cc332f634513a0
+      size: 427
+    - path: reports/eda_prepare.json
+      hash: md5
+      md5: 93863e2d7374f894735a1f4604c31350
+      size: 310
+    - path: src/featurize.py
+      hash: md5
+      md5: d61c1b5f16cededf28d34f439e583c34
+      size: 1701
+    outs:
+    - path: data/processed/meta.json
+      hash: md5
+      md5: e51ebc9eb01a7a3fefa743ab32b58a64
+      size: 104
+    - path: data/processed/modified_processed.parquet
+      hash: md5
+      md5: 574aa7e84975313fe897aff418b18904
+      size: 2048524
+  train:
+    cmd: python src/train.py
+    deps:
+    - path: data/processed/meta.json
+      hash: md5
+      md5: e51ebc9eb01a7a3fefa743ab32b58a64
+      size: 104
+    - path: data/processed/modified_processed.parquet
+      hash: md5
+      md5: 574aa7e84975313fe897aff418b18904
+      size: 2048524
+    - path: params.yaml
+      hash: md5
+      md5: fcb09abb6d029a9459cc332f634513a0
+      size: 427
+    - path: src/train.py
+      hash: md5
+      md5: fad8f642880de709c55bbb9357efaf38
+      size: 3007
+    outs:
+    - path: models/
+      hash: md5
+      md5: 25f67f79129e33dd533c533e1581603e.dir
+      size: 437539415
+      nfiles: 3
+    - path: reports/model_metrics.csv
+      hash: md5
+      md5: 2ac0aa8dbc2f3f2d999af191abf1478d
+      size: 273
+  evaluate:
+    cmd: python src/evaluate.py
+    deps:
+    - path: reports/model_metrics.csv
+      hash: md5
+      md5: 2ac0aa8dbc2f3f2d999af191abf1478d
+      size: 273
+    - path: src/evaluate.py
+      hash: md5
+      md5: da3c6ed5930b20c37b901cb32f83c3b5
+      size: 611
+    outs:
+    - path: reports/figures/rmse_by_model.png
+      hash: md5
+      md5: faf146a7a3b1c4067aaba6fe50702d18
+      size: 21647

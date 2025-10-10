@@ -1,5 +1,5 @@
-# Jupyter Notebook
-.ipynb_checkpoints
+# macOS metadata
+.DS_Store
 
 # Environments
 .env
@@ -11,6 +11,22 @@ ENV/
 env.bak/
 venv.bak/
 
-.DS_Store
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
 
+# Ignore python cache files
+__pycache__/
+
+# Temporary files
 tmp/
+
+# Project files
+models/
+reports/figures/
+
+# Data files
+data/interim/
+data/processed/
+
+# DVC caches ignored by DVC
+/models

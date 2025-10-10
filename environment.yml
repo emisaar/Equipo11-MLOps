@@ -1,0 +1,12 @@
+name: tetouan-mlops
+channels: [conda-forge, defaults]
+dependencies:
+  - python=3.13
+  - pandas
+  - numpy
+  - scikit-learn
+  - matplotlib
+  - pyarrow
+  - pip
+  - pip:
+      - dvc
