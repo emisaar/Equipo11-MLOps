@@ -16,6 +16,7 @@ venv.bak/
 
 # Ignore python cache files
 __pycache__/
+.pytest_cache/
 
 # Temporary files
 tmp/
@@ -30,3 +31,14 @@ data/processed/
 
 # DVC caches ignored by DVC
 /models
+data/raw/
+.dvc/
+.dvcignore
+.dvc/tmp/
+.dvc/cache/
+
+# IDEs
+.vscode/
+.idea/
+*.pyc
+*.pyo

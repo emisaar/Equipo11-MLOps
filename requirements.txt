@@ -12,3 +12,7 @@ mlflow
 evidently
 sdv
 deepchecks
+joblib
+pyarrow
+pyyaml
+xgboost

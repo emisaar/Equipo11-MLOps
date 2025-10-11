@@ -1,0 +1,12 @@
+from pathlib import Path
+import yaml
+from classes import TrainModel
+
+if __name__ == "__main__":
+    params = yaml.safe_load(open("params.yaml", "r", encoding="utf-8"))
+    TrainModel(
+        train_parquet=Path(params["data"]["train"]),
+        target=params["features"]["target"]["preferred"],
+        model_out=Path(params["model"]["path"]),
+        rf_params=params["model"]["rf_params"],
+    ).run()

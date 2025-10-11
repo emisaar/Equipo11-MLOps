@@ -1,23 +1,38 @@
 data:
-  raw_modified: data/raw/power_tetouan_city_modified.csv  
+  raw_path: data/raw/power_tetouan_city_modified.csv
+  interim_loaded: data/interim/loaded.parquet
+  train: data/processed/train.parquet
+  test: data/processed/test.parquet
+
 features:
   datetime_column: DateTime
   target:
+    # Selecciona la zona objetivo (ej.: "Zone 1", "Zone 2" o "Zone 3")
     preferred: Zone 1 Power Consumption
     alternatives:
     - Zone 2  Power Consumption
     - Zone 3  Power Consumption
-  time_parts: true
-  lags:
-  - 1
-  - 24
+  # Lags en pasos (si tus datos son horarios: 1, 24, 168 ~ 1h, 1d, 7d)
+  lags: [1, 24, 168]
+
 split:
   test_size: 0.2
-  time_ordered: true
-models:
-  ridge:
-    alpha: 1.0
-  random_forest:
-    n_estimators: 200
-    random_state: 42
+  random_state: 42
+
+eda:
+  sample_rows: 5
+
+model:
+  path: models/rf_regressor.pkl
+  rf_params:
+    n_estimators: 300
+    max_depth: null
     n_jobs: -1
+    random_state: 42
+
+metrics:
+  path: metrics/metrics.json
+
+reports:
+  eda_dir: reports/eda
+  figures_dir: reports/figures

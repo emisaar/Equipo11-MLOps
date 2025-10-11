@@ -34,6 +34,8 @@ python.exe -m pip install --upgrade pip
 # Instalar librerias desde requirements.txt
 pip install -r requirements.txt
 
+# En caso de reinstalar las libreria
+# pip install --upgrade --force-reinstall -r requirements.txt
 # (opcional) conda: conda env create -f environment.yml
 ```
 
@@ -56,12 +58,22 @@ dvc repro
 # Ver métricas
 dvc metrics show
 
-# Ver el DAG
+# Ver el DAG - Directed Acyclic Graph (Grafo Dirigido Acíclico).
 dvc dag
 
+# Configuracion de un carpeta local para el almacenamineto remoto
+mkdir -p local-dvc-storage
+dvc remote add -d localstorage local-dvc-storage
+
+git add .dvc/config
+git commit -m "chore(dvc): configure remote storage (local)"
+
+# Sube los datos al almacenamiento remoto
+dvc push -r localstorage
+
 # Versiona los datos limpios, procesados y los sube
-dvc add data/interim/modified_clean.parquet 
-dvc add data/processed/modified_processed.parquet
+dvc add data/interim/loaded.parquet     # EDA y Limpieza
+dvc add data/processed/test.parquet     # Dataset para Test
+dvc add data/processed/train.parquet    # Dataset para Train
 dvc push
 ```
-
