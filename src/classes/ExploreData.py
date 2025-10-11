@@ -28,14 +28,14 @@ class ExploreData:
     ----------
     input_parquet : Path
         Ruta al Parquet de datos cargados (salida de LoadData).
-    report_dir : Path
+    report_path : Path
         Carpeta donde se almacenarán reportes y figuras del EDA.
     sample_rows : int, default=5
         Número de filas a incluir en el ``head``.
     """
 
     input_parquet: Path
-    report_dir: Path
+    report_path: Path
     sample_rows: int = 5
 
     def run(self) -> None:
@@ -48,16 +48,17 @@ class ExploreData:
         - ``histograms.png``: histogramas de variables numéricas.
         - ``correlation_matrix.png``: mapa de calor con correlaciones.
         """
+        
         # Crea la carpeta de reportes si no existe
-        self.report_dir.mkdir(parents=True, exist_ok=True)
+        self.report_path.mkdir(parents=True, exist_ok=True)
 
         # Carga el dataset intermedio (ya validado por la etapa anterior)
         df = pd.read_parquet(self.input_parquet)
 
         # --- Archivos de texto: head / describe / info ---
-        head_txt = self.report_dir / "head.txt"
-        describe_csv = self.report_dir / "describe.csv"
-        info_txt = self.report_dir / "info.txt"
+        head_txt = self.report_path / "head.txt"
+        describe_csv = self.report_path / "describe.csv"
+        info_txt = self.report_path / "info.txt"
 
         # Guarda un vistazo rápido de las primeras filas
         head_txt.write_text(df.head(self.sample_rows).to_string())
@@ -79,7 +80,7 @@ class ExploreData:
             fig = plt.figure(figsize=(16, 10))
             num_df.hist(bins=20, figsize=(16, 10))
             plt.tight_layout()
-            plt.savefig(self.report_dir / "histograms.png", dpi=150)
+            plt.savefig(self.report_path / "histograms.png", dpi=150)
             plt.close(fig)
 
         # --- Matriz de correlación si hay suficientes numéricas ---
@@ -87,5 +88,5 @@ class ExploreData:
             plt.figure(figsize=(12, 8))
             sns.heatmap(num_df.corr(), annot=False)
             plt.tight_layout()
-            plt.savefig(self.report_dir / "correlation_matrix.png", dpi=150)
+            plt.savefig(self.report_path / "correlation_matrix.png", dpi=150)
             plt.close()

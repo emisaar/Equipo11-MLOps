@@ -8,5 +8,5 @@ if __name__ == "__main__":
         train_parquet=Path(params["data"]["train"]),
         target=params["features"]["target"]["preferred"],
         model_out=Path(params["model"]["path"]),
-        rf_params=params["model"]["rf_params"],
+        model_params=params["model"]["model_params"],
     ).run()

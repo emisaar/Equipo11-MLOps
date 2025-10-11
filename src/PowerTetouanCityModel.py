@@ -31,63 +31,148 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # Librerías de manejo de datos
-from typing import Optional, Tuple
+from typing import Optional, Dict, Tuple
 
-# librerías del pipeline de power tetouan city
-from classes import LoadData, DataExplorer, PreprocessData, TrainModel, EvaluateModel
+# librerías para las clases del pipeline
+from classes.LoadData import LoadData
+from classes.ExploreData import ExploreData
+from classes.PreprocessData import PreprocessData
+from classes.TrainModel import TrainModel
+from classes.EvaluateModel import EvaluateModel
 
 @dataclass
 class PowerTetouanCityModel:
-    """Clase orquestadora que integra todo el flujo end-to-end."""
-    raw_path: str
-    processed_out: Optional[str] = None
+    """
+    Clase orquestadora que integra todo el flujo end-to-end.
+    Carga datos, realiza EDA, preprocesa, entrena y evalúa el modelo.
+    Cada etapa usa las clases modulares definidas en `classes/`.
+    
+    Parameters
+    -raw_path : str
+        Ruta al CSV/Parquet con datos sin procesar.
+    -processed_out : Optional[str]
+        Ruta opcional para guardar el dataset procesado (Parquet).
+    -target_col : str
+        Nombre de la variable objetivo a modelar.   
+    -lags : Tuple[int, ...]
+        Desplazamientos para crear lags del target.
+    -alpha : float   
+        Parámetro alpha para el modelo (si aplica).
+    -test_size : float   
+        Proporción del conjunto de test (0 < test_size < 1).
+    -experiment_name : str
+        Nombre del experimento en MLflow.
+    -tracking_uri : Optional[str]            
+        URI del servidor de tracking de MLflow (si None usa el backend por defecto).
+    
+    Methods    
+    -fit_evaluate(self) -> dict
+        Ejecuta todo el flujo end-to-end y retorna un diccionario con
+        resultados de entrenamiento y evaluación.
+    """    
+    raw_path: Path
+    interim_path: Path
+    report_path: Path
+    cleaned_path: Path = None           
+    train_path: Path = None,
+    test_path: Path = None,
+    model_path: Path = None,
+    metrics_path: Path = None,
+    figures_path: Path = None,
+    source: str ="file",
+    date_column: str ="DateTime",      
     target_col: str = "zone_1_power_consumption"
+    model_params: Optional[Dict] = None
     lags: Tuple[int, ...] = (1,2,24)
     alpha: float = 1.0
-    test_size: float = 0.2
+    split_test_size: float = 0.2
+    split_random_state: int = 42
     experiment_name: str = "TetouanCityPower"
     tracking_uri: Optional[str] = None
 
     def fit_evaluate(self):
-        # Carga
-        df = LoadData(self.raw_path).run()
+        """
+        Ejecuta todo el flujo end-to-end y retorna un diccionario con
+        resultados de entrenamiento y evaluación.
+        Pasos:
+        1) Carga datos con LoadData.
+        2) EDA con DataExplorer (resúmenes, correlaciones, gráficos).
+        3) Preprocesamiento con PreprocessData (limpieza, lags, split).
+        4) Entrenamiento con TrainModel (pipeline + MLflow logging).
+        5) Evaluación con EvaluateModel (métricas, gráficos + MLflow logging).
+        6) Guarda dataset procesado si se indica self.processed_out.
+        """
+        # Carga de datos
+        output_path = LoadData(source=self.source, 
+                               input_path=self.raw_path,datetime_column=self.date_column, 
+                               output_path=self.interim_path).run()    
+        print(f"Data loaded and saved to: {output_path}")      
 
+        # Exploración de datos
+        explorer = ExploreData(input_parquet=output_path, 
+                               report_path=self.report_path,
+                               sample_rows=5)
+        explorer.run()                   
+        
         # Preprocesamiento
-        pre = PreprocessData(self.target_col, lags=self.lags)
-        data = pre.run(df)
+        pre = PreprocessData(input_parquet=output_path,
+                             datetime_column=self.date_column,
+                             target=self.target_col,
+                             lags=self.lags,
+                             test_size=self.split_test_size,
+                             random_state=self.split_random_state,
+                             out_train=self.train_path,
+                             out_test=self.test_path,
+                             out_cleaned=self.cleaned_path)
+        data = pre.run()      
 
         # Entrenamiento + tracking
-        trainer = TrainModel(
-            target_col=self.target_col,
-            test_size=self.test_size,
-            alpha=self.alpha,
-            experiment_name=self.experiment_name,
-            tracking_uri=self.tracking_uri
-        )
-        pipe, train_results = trainer.run(data)
-
+        trainer = TrainModel(train_parquet=self.train_path,
+                             target=self.target_col,
+                             model_out=self.model_path,
+                             model_params=self.model_params)        
+        train_results = trainer.run()
+        
         # Evaluación final
-        evaluator = EvaluateModel(target_col=self.target_col)
-        eval_results = evaluator.run(pipe, data)
+        evaluator = EvaluateModel(test_parquet= self.test_path,
+                                  model_path= self.model_path,
+                                  target=self.target_col,
+                                  metrics_path=self.metrics_path, 
+                                  figures_path= self.figures_path)
+        eval_results = evaluator.run()                      
 
-        # Export opcional del dataset procesado
-        if self.processed_out:
-            Path(self.processed_out).parent.mkdir(parents=True, exist_ok=True)
-            data.to_parquet(self.processed_out, index=False)
-
-        return {"train": train_results, "eval": eval_results}
+        return {"model": self.experiment_name, "eval": eval_results}        
+        
 
 if __name__ == "__main__":
-    RAW = "./data/raw/power_tetouan_city_modified.csv"
-    OUT = "./data/processed/power_tetouan_city_processed_2.parquet"
+    RAW_PATH = "./data/raw/power_tetouan_city_modified.csv"
+    INTERMI_PATH = "./data/interim/loaded.parquet"
+    REPORT_EDA_PATH = "./reports/eda/"
+    CLEANED_PATH = "./data/processed/cleaned_sample.parquet"
+    TRAIN_PATH = "./data/processed/train.parquet"
+    TEST_PATH = "./data/processed/test.parquet"
+    MODEL_PATH = "./models/power_tetouan_model.pkl"
+    METRICS_PATH = "./metrics/metrics.json"
+    FIGURES_PATH = "./reports/figures/"
 
     app = PowerTetouanCityModel(
-        raw_path=RAW,
-        processed_out=OUT,
+        raw_path=Path(RAW_PATH),
+        interim_path=Path(INTERMI_PATH),
+        report_path=Path(REPORT_EDA_PATH),
+        cleaned_path=Path(CLEANED_PATH),
+        train_path =Path(TRAIN_PATH),
+        test_path =Path(TEST_PATH),
+        model_path=Path(MODEL_PATH),
+        metrics_path=Path(METRICS_PATH),
+        figures_path=Path(FIGURES_PATH),
+        source="file",
+        date_column="DateTime",
         target_col="zone_1_power_consumption",
+        model_params= {"n_estimators": 300, "max_depth": None, "n_jobs": -1, "random_state": 42},
         lags=(1,2,24),
         alpha=1.0,
-        test_size=0.2,
+        split_test_size=0.2,
+        split_random_state=42,
         experiment_name="TetouanCityPower",
         tracking_uri=None  # usa el backend por defecto (./mlruns) o configura uno propio
     )

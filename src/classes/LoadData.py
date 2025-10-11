@@ -33,27 +33,41 @@ class LoadData:
     
     """    
     source: str = "file"  # "file" | "db"
-    path: Optional[str] = None
+    input_path: Optional[Path] = None
+    datetime_column: str = None
+    output_path: Path = None    
     
     # Parsing/normalización
     parse_date_cols: Sequence[str] = ("DateTime", "datetime")
     coerce_mixed_col: Optional[str] = "mixed_type_col"
 
-    def run(self, page: Optional[int] = None, size: Optional[int] = None) -> pd.DataFrame:
+    def run(self, page: Optional[int] = None, size: Optional[int] = None) -> Path:
         """
-        Ejecuta la carga:
+        Ejecuta la etapa de carga de datos y guarda el resultado como Parquet en
+        ``output_path``:
         - Si source="file": lee CSV/Parquet desde self.path.
         - Si source="db": lee desde MySQL usando self.query o self.table.
-        La paginación (LIMIT/OFFSET) aplica sólo cuando source="db".
-        """
+            La paginación (LIMIT/OFFSET) aplica sólo cuando source="db".
+        
+        Returns        
+        -Path
+            Ruta del archivo Parquet generado.
+        """    
+        # Asegura que el directorio de salida exista
+        self.output_path.parent.mkdir(parents=True, exist_ok=True)
+                   
         # Carga según source
         src = (self.source or "file").lower()
         if src == "file":
-            return self._load_file()
+            df = self._load_file()
         elif src == "db":
-            return self._load_db(page=page, size=size)
+            df = self._load_db(page=page, size=size)
         else:
             raise ValueError("source debe ser 'file' o 'db'.")       
+        
+        # Guarda como Parquet
+        df.to_parquet(self.output_path, index=False)
+        return self.output_path
             
     def _load_file(self) -> pd.DataFrame:
         """
@@ -70,12 +84,12 @@ class LoadData:
         
         """
         # validaciones básicas de path y existencia de archivo
-        if not self.path:
+        if not self.input_path:
             raise ValueError("Debes proporcionar 'path' para source='file'.")
-        path = Path(self.path)
+        path = Path(self.input_path)
 
         if not path.exists():
-            raise FileNotFoundError(f"No existe el archivo: {self.path}")
+            raise FileNotFoundError(f"No existe el archivo: {self.input_path}")
         
         # Detecta formato por extensión
         suffix = path.suffix.lower()
@@ -137,7 +151,10 @@ class LoadData:
         if self.coerce_mixed_col and self.coerce_mixed_col in df.columns:
             df[self.coerce_mixed_col] = pd.to_numeric(df[self.coerce_mixed_col], errors="coerce")
 
-        # Parseo robusto de datetime: intenta con parse_date_cols normalizados
+        # Parseo robusto de datetime: intenta con parse_date_cols normalizados        
+        if self.datetime_column != "":
+            self.parse_date_cols = self.datetime_column
+                        
         dt_col = None
         for c in self.parse_date_cols:
             cn = Util.clean_name(c)

@@ -38,7 +38,7 @@ class TrainModel:
     train_parquet: Path
     target: str
     model_out: Path
-    rf_params: Optional[Dict] = None
+    model_params: Optional[Dict] = None
 
     def run(self) -> Path:
         """Ejecuta el entrenamiento del modelo.
@@ -63,7 +63,7 @@ class TrainModel:
         y_train = df[self.target]
 
         # Usa hiperparámetros provistos o defaults robustos
-        params = self.rf_params or {
+        params = self.model_params or {
             "n_estimators": 300,
             "max_depth": None,
             "n_jobs": -1,

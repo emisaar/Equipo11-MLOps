@@ -14,4 +14,5 @@ if __name__ == "__main__":
         random_state=p["split"]["random_state"],
         out_train=Path(p["data"]["train"]),
         out_test=Path(p["data"]["test"]),
+        out_cleaned=Path(p["data"]["cleaned"]),
     ).run()

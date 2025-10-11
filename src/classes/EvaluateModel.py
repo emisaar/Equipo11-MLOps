@@ -34,17 +34,17 @@ class EvaluateModel:
         Ruta al pickle con el bundle del modelo (salida de TrainModel).
     target : str
         Nombre de la variable objetivo.
-    metrics_json : Path
+    metrics_path : Path
         Ruta donde se guardará el JSON con métricas.
-    figures_dir : Path
+    figures_path : Path
         Carpeta donde se guardarán las figuras de evaluación.
     """
 
     test_parquet: Path
     model_path: Path
     target: str
-    metrics_json: Path
-    figures_dir: Path
+    metrics_path: Path
+    figures_path: Path
 
     def run(self) -> Path:
         """Ejecuta la evaluación del modelo y persiste resultados.
@@ -61,7 +61,7 @@ class EvaluateModel:
             Ruta al archivo JSON de métricas generado.
         """
         # Asegura la carpeta de salida de figuras (p. ej. reports/figures)
-        self.figures_dir.mkdir(parents=True, exist_ok=True)
+        self.figures_path.mkdir(parents=True, exist_ok=True)
 
         # Carga el bundle serializado con joblib
         bundle = joblib.load(self.model_path)
@@ -87,8 +87,8 @@ class EvaluateModel:
         }
 
         # Persiste las métricas en JSON (legible por DVC para comparaciones)
-        self.metrics_json.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.metrics_json, "w", encoding="utf-8") as f:
+        self.metrics_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.metrics_path, "w", encoding="utf-8") as f:
             json.dump(metrics, f, indent=2)
 
         # --- Figura 1: serie temporal y_true vs y_pred ---
@@ -97,7 +97,7 @@ class EvaluateModel:
         plt.plot(y_pred, label="y_pred")
         plt.legend()
         plt.tight_layout()
-        plt.savefig(self.figures_dir / "y_true_vs_y_pred.png", dpi=150)
+        plt.savefig(self.figures_path / "y_true_vs_y_pred.png", dpi=150)
         plt.close()
 
         # --- Figura 2: dispersión (predicho vs real) ---
@@ -106,7 +106,7 @@ class EvaluateModel:
         plt.xlabel("y_true")
         plt.ylabel("y_pred")
         plt.tight_layout()
-        plt.savefig(self.figures_dir / "scatter_true_vs_pred.png", dpi=150)
+        plt.savefig(self.figures_path / "scatter_true_vs_pred.png", dpi=150)
         plt.close()
 
-        return self.metrics_json
+        return metrics

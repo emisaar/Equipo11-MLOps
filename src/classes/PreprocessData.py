@@ -52,6 +52,7 @@ class PreprocessData:
     random_state: int
     out_train: Path
     out_test: Path
+    out_cleaned: Path
     
     def add_time_features(self, df: pd.DataFrame, dt_col: str) -> pd.DataFrame:
         """Agrega rasgos temporales derivados de una columna datetime.
@@ -184,7 +185,10 @@ class PreprocessData:
         df = df.dropna().reset_index(drop=True)
         if real_dt_col in df.columns:
             df = df.drop(columns=[real_dt_col])
-
+        
+        # Guarada una copia del DataFrame limpio para inspección
+        df.to_parquet(self.out_cleaned, index=False)
+        
         # Separar X/y y asegurar que X sea numérica
         X = df.drop(columns=[real_target]).select_dtypes(include=[np.number]).replace([np.inf, -np.inf], np.nan).dropna()        
         # Re-alinear y con X (por si se cayeron filas al limpiar inf/NaN)
@@ -205,7 +209,7 @@ class PreprocessData:
         test_df = X_test.copy()
         test_df[real_target] = y_test
 
-        # Persistir
+        # Guardar resultados en archivos Parquet        
         train_df.to_parquet(self.out_train, index=False)
         test_df.to_parquet(self.out_test, index=False)
         return self.out_train, self.out_test

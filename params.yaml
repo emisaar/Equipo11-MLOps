@@ -3,6 +3,7 @@ data:
   interim_loaded: data/interim/loaded.parquet
   train: data/processed/train.parquet
   test: data/processed/test.parquet
+  cleaned: data/processed/cleaned_sample.parquet
 
 features:
   datetime_column: DateTime
@@ -23,8 +24,8 @@ eda:
   sample_rows: 5
 
 model:
-  path: models/rf_regressor.pkl
-  rf_params:
+  path: models/power_tetouan_model.pkl
+  model_params:
     n_estimators: 300
     max_depth: null
     n_jobs: -1
