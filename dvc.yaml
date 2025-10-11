@@ -1,9 +1,8 @@
 stages:
   load_data:
-    cmd: python src/01_load_data.py
+    cmd: python src/pipeline/01_load_data.py
     deps:
-      - src/01_load_data.py
-      - src/power_pipeline.py
+      - src/pipeline/01_load_data.py      
       - ${data.raw_path}
     params:
       - features.datetime_column
@@ -13,10 +12,9 @@ stages:
       - ${data.interim_loaded}
 
   explore_data:
-    cmd: python src/02_explore_data.py
+    cmd: python src/pipeline/02_explore_data.py
     deps:
-      - src/02_explore_data.py
-      - src/power_pipeline.py
+      - src/pipeline/02_explore_data.py      
       - ${data.interim_loaded}
     params:
       - reports.eda_dir
@@ -25,10 +23,9 @@ stages:
       - ${reports.eda_dir}
 
   preprocess_data:
-    cmd: python src/03_preprocess_data.py
+    cmd: python src/pipeline/03_preprocess_data.py
     deps:
-      - src/03_preprocess_data.py
-      - src/power_pipeline.py
+      - src/pipeline/03_preprocess_data.py      
       - ${data.interim_loaded}
     params:
       - features.datetime_column
@@ -43,10 +40,9 @@ stages:
       - ${data.test}
 
   train_model:
-    cmd: python src/04_train_model.py
+    cmd: python src/pipeline/04_train_model.py
     deps:
-      - src/04_train_model.py
-      - src/power_pipeline.py
+      - src/pipeline/04_train_model.py      
       - ${data.train}
     params:
       - features.target.preferred
@@ -56,10 +52,9 @@ stages:
       - ${model.path}
 
   evaluate_model:
-    cmd: python src/05_evaluate_model.py
+    cmd: python src/pipeline/05_evaluate_model.py
     deps:
-      - src/05_evaluate_model.py
-      - src/power_pipeline.py
+      - src/pipeline/05_evaluate_model.py      
       - ${data.test}
       - ${model.path}
     params:
