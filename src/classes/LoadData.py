@@ -145,7 +145,7 @@ class LoadData:
         """
         # Limpieza básica de nombres de columnas
         df.columns = [Util.clean_name(c) for c in df.columns]
-        
+        """
         # Conversión de tipos si es necesario coerce (para evitar errores)
         # Si hay una columna que debería ser numérica pero tiene strings
         if self.coerce_mixed_col and self.coerce_mixed_col in df.columns:
@@ -169,9 +169,10 @@ class LoadData:
             if not pd.api.types.is_datetime64_any_dtype(df["datetime"]):
                 df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce", infer_datetime_format=True)
             dt_col = "datetime"
-
+        
         # Orden por datetime si está disponible
         if dt_col and dt_col in df.columns:
             df = df.sort_values(dt_col).reset_index(drop=True)
+        """
 
         return df
