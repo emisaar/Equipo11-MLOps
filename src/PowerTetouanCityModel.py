@@ -17,7 +17,7 @@ Clases:
 - PreprocessData  : limpieza, imputación, generación de variables (tiempo + lags).
 - TrainModel      : pipeline scikit-learn (scaler + modelo) + MLflow logging.
 - EvaluateModel   : métricas, gráficos + MLflow logging.
-- PowerTetouanCityModel : orquestador que integra todo (fit/predict/evaluate).
+- PowerTetouanCityModel : orquestador que integra todo.
 
 Cada clase expone un método público `.run()` que ejecuta la etapa y retorna el
 artefacto principal de salida (o None cuando la etapa sólo produce archivos en
@@ -138,7 +138,8 @@ class PowerTetouanCityModel:
                                   model_path= self.model_path,
                                   target=self.target_col,
                                   metrics_path=self.metrics_path, 
-                                  figures_path= self.figures_path)
+                                  figures_path= self.figures_path,
+                                  experiment_name=self.experiment_name)
         eval_results = evaluator.run()                      
 
         return {"model": self.experiment_name, "eval": eval_results}        
@@ -168,10 +169,21 @@ if __name__ == "__main__":
         source="file",
         date_column="DateTime",
         target_col="zone_1_power_consumption",
-        model_params= {"n_estimators": 300, "max_depth": None, "n_jobs": -1, "random_state": 42},
+        model_params= {"n_estimators": 800,
+                       "learning_rate": 0.05,
+                       "max_depth": 6,
+                       "min_child_weight": 3,
+                       "subsample": 0.8,
+                       "colsample_bytree": 0.8,
+                       "gamma": 0.1,
+                       "reg_lambda": 1.0,
+                       "reg_alpha": 0.1,
+                       "random_state": 42,
+                       "objective": 'reg:squarederror',                       
+                       "n_jobs": -1},
         lags=(1,2,24),
         alpha=1.0,
-        split_test_size=0.2,
+        split_test_size=0.3,
         split_random_state=42,
         experiment_name="TetouanCityPower",
         tracking_uri=None  # usa el backend por defecto (./mlruns) o configura uno propio

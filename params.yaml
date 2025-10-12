@@ -7,7 +7,7 @@ data:
   cleaned: data/processed/cleaned_sample.parquet
 
 features:
-  datetime_column: DateTime
+  datetime_column: datetime
   target:
     # Selecciona la zona objetivo (ej.: "Zone 1", "Zone 2" o "Zone 3")
     preferred: zone_1_power_consumption
@@ -18,7 +18,7 @@ features:
   lags: [1, 24, 168]
 
 split:
-  test_size: 0.2
+  test_size: 0.3
   random_state: 42
 
 eda:
@@ -27,10 +27,23 @@ eda:
 model:
   path: models/power_tetouan_model.pkl
   model_params:
-    n_estimators: 300
-    max_depth: null
-    n_jobs: -1
+    n_estimators: 800
+    learning_rate: 0.05
+    max_depth: 6
+    min_child_weight: 3
+    subsample: 0.8
+    colsample_bytree: 0.8
+    gamma: 0.1
+    reg_lambda: 1.0
+    reg_alpha: 0.1
     random_state: 42
+    objective: 'reg:squarederror'    
+    n_jobs: -1
+
+mlfow:
+  tracking_uri: http://localhost:5000 
+  experiment_name: TetouanCityPower
+  run_name: TetouanPowerModel    
 
 metrics:
   path: metrics/metrics.json

@@ -17,4 +17,7 @@ if __name__ == "__main__":
         target=params["features"]["target"]["preferred"],
         metrics_path=Path(params["metrics"]["path"]),
         figures_path=Path(params["reports"]["figures_dir"]),
+        tracking_uri=params["mlfow"]["tracking_uri"],
+        experiment_name=params["mlfow"]["experiment_name"],
+        run_name=params["mlfow"]["run_name"],
     ).run()

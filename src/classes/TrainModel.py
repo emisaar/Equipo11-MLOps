@@ -17,6 +17,11 @@ from typing import Dict, Optional
 
 # Librerías de machine learning
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from xgboost import XGBRegressor
 
 @dataclass
 class TrainModel:
@@ -38,7 +43,7 @@ class TrainModel:
     train_parquet: Path
     target: str
     model_out: Path
-    model_params: Optional[Dict] = None
+    model_params: Optional[Dict] = None    
 
     def run(self) -> Path:
         """Ejecuta el entrenamiento del modelo.
@@ -53,27 +58,21 @@ class TrainModel:
             Ruta del archivo pickle del modelo entrenado.
         """
         # Asegura carpeta de modelos (p. ej. models/)
-        self.model_out.parent.mkdir(parents=True, exist_ok=True)
+        self.model_out.parent.mkdir(parents=True, exist_ok=True)                          
 
         # Carga los datos de entrenamiento
         df = pd.read_parquet(self.train_parquet)
 
         # Separa características (todas menos target) y objetivo
         X_train = df.drop(columns=[self.target])
-        y_train = df[self.target]
-
-        # Usa hiperparámetros provistos o defaults robustos
-        params = self.model_params or {
-            "n_estimators": 300,
-            "max_depth": None,
-            "n_jobs": -1,
-            "random_state": 42,
-        }
-
+        y_train = df[self.target] 
+              
         # Inicializa y ajusta el modelo de bosque aleatorio
-        model = RandomForestRegressor(**params)
-        model.fit(X_train, y_train)
-
+        model = XGBRegressor(**self.model_params)
+        pre = ColumnTransformer([("num", Pipeline([("imp", SimpleImputer(strategy="median")), ("scaler", StandardScaler())]), X_train.columns.tolist())])
+        pipe = Pipeline([("prep", pre), ("model", model)])        
+        pipe.fit(X_train, y_train)                                
+                    
         # Guarda modelo + orden de features para reproducir el mismo vector X
-        joblib.dump({"model": model, "features": list(X_train.columns)}, self.model_out)
+        joblib.dump({"model": model, "features": list(X_train.columns), "params": self.model_params}, self.model_out)
         return self.model_out

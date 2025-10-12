@@ -88,13 +88,13 @@ class PreprocessData:
         df = df.drop(columns=['mixed_type_col'])
         
         # Limpieza de valores no numéricos en columnas numéricas
-        valores_invalidos = ['error', 'invalid', '?', 'NAN', 'n/a', 'null', 'INVALID', 
-                             'ERROR', ' NAN ', ' ? ', ' ERROR ', ' INVALID ', ' n/a ', ' null ']
+        #valores_invalidos = ['error', 'invalid', '?', 'NAN', 'n/a', 'null', 'INVALID', 
+        #                     'ERROR', ' NAN ', ' ? ', ' ERROR ', ' INVALID ', ' n/a ', ' null ']
         
         # Reemplaza valores inválidos por NaN y convierte a numérico
-        for col in columnas_numericas:
-            df[col] = df[col].replace(valores_invalidos, np.nan)
-            df[col] = pd.to_numeric(df[col], errors='coerce')
+        #for col in columnas_numericas:
+        #    df[col] = df[col].replace(valores_invalidos, np.nan)
+        #    df[col] = pd.to_numeric(df[col], errors='coerce')
 
         # Coaccionar el target a numérico (convierte 'invalid' -> NaN)
         df[real_target] = pd.to_numeric(df[real_target], errors="coerce")
