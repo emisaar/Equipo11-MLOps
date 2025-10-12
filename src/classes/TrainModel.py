@@ -67,7 +67,7 @@ class TrainModel:
         X_train = df.drop(columns=[self.target])
         y_train = df[self.target] 
               
-        # Inicializa y ajusta el modelo de bosque aleatorio
+        # Inicializa y ajusta el modelo
         model = XGBRegressor(**self.model_params)
         pre = ColumnTransformer([("num", Pipeline([("imp", SimpleImputer(strategy="median")), ("scaler", StandardScaler())]), X_train.columns.tolist())])
         pipe = Pipeline([("prep", pre), ("model", model)])        
