@@ -43,6 +43,8 @@ class PreprocessData:
         Ruta donde se guardará el parquet de entrenamiento.
     out_test : Path
         Ruta donde se guardará el parquet de prueba.
+    out_cleaned : Path
+        Ruta donde se guardará el parquet de limpio.
     """
 
     input_parquet: Path

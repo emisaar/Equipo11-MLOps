@@ -1,6 +1,6 @@
 # TrainModel.py
 # Módulo que define la clase TrainModel para entrenar un modelo de regresión.   
-# Utiliza RandomForestRegressor con hiperparámetros configurables.
+# Utiliza XGBRegressor con hiperparámetros configurables.
 # Autor: Equipo 11 - MLOps
 # ===========================
 # Librerías para anotaciones y dataclasses
@@ -25,7 +25,7 @@ from xgboost import XGBRegressor
 
 @dataclass
 class TrainModel:
-    """Entrena un RandomForestRegressor y guarda el bundle del modelo.
+    """Entrena un modelo XGBRegressor y guarda el bundle del modelo.
 
     Attributes
     ----------
@@ -49,7 +49,7 @@ class TrainModel:
         """Ejecuta el entrenamiento del modelo.
 
         Carga el conjunto de entrenamiento, separa X/y, inicializa y ajusta
-        un RandomForestRegressor con ``rf_params`` y persiste un *bundle*
+        con los parametros de ``model_params`` y persiste un *bundle*
         (diccionario) con: ``{"model": model, "features": lista_de_columnas}``.
 
         Returns

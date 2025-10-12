@@ -44,6 +44,12 @@ class EvaluateModel:
         Ruta donde se guardará el JSON con métricas.
     figures_path : Path
         Carpeta donde se guardarán las figuras de evaluación.
+    tracking_uri : Path
+        URL del tracking de MLFlow.
+    experiment_name : Path
+        Nombre del experimento de MLFlow.
+    run_name : Path
+        Nombre de la corrida de MLFlow.
     """
 
     test_parquet: Path

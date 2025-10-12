@@ -25,12 +25,9 @@ class LoadData:
     
     Parámetros:
     - source: "file" (CSV/Parquet) o "db"
-    - path: ruta a archivo (si source="file")
-    - table: nombre de tabla (si source="db" y no se usa query)
-    - query: consulta SQL completa (opcional, prioridad sobre table)
-    - parse_date_cols: posibles nombres de columna datetime a detectar/parsear
-    - coerce_mixed_col: nombre de columna a forzar a numérica si existe
-    
+    - input_path: ruta a archivo (si source="file")
+    - datetime_column: nombre de columna datetime
+    - output_path: ruta a archivo Parquet interim
     """    
     source: str = "file"  # "file" | "db"
     input_path: Optional[Path] = None

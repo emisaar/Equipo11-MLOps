@@ -44,11 +44,19 @@ class ExploreData:
         """Ejecuta la exploración de datos y guarda artefactos.
 
         Produce:
-        - ``head.txt``: primeras ``sample_rows`` filas.
-        - ``describe.csv``: estadísticas descriptivas.
-        - ``info.txt``: shape, dtypes y conteo de nulos.
-        - ``histograms.png``: histogramas de variables numéricas.
-        - ``correlation_matrix.png``: mapa de calor con correlaciones.
+        - ``01_head.txt``: vistazo rápido de las primeras filas.
+        - ``02_tail.csv``: vistazo rápido de las ultimas filas.
+        - ``03_info.txt``: Info del DataFrame.
+        - ``04_describe.txt``: Estadísticos para todas las columnas (incluye categóricas).
+        - ``05_summary.txt``: Construye un pequeño resumen: shape, dtypes y nulos.
+        - ``06_missing.txt``: Obtiene el % de valores faltantes en el dataframe (Por columna).
+        - ``07_not_number.txt``: Identificar valores no númericos en columnas numéricas.
+        - ``08_mixed_type_txt.txt``: Análisis de la columna 'mixed_type_col' (columna 'extra').
+        - ``09_datetime_txt.txt``: Análisis de la columna 'timestamps'.
+        - ``10_outliers_txt.txt``: Análisis de outliers.
+        - ``fig01_missing.png``: Visualización de valores faltantes .
+        - ``fig02_distribucion_variables_fd.png``: Distribución de variables.
+        - ``fig03_correlation_matrix.png``: Mapa de calor con correlaciones.
         """
         
         # Crea la carpeta de reportes si no existe
@@ -167,6 +175,7 @@ class ExploreData:
         buf.append(f"   - {len(duplicados_dt)} filas con timestamps duplicados") 
         datetime_txt.write_text("\n".join(buf), encoding="utf-8")
         
+        # Análisis de outliers
         buf = self.detectar_outliers_extremos(df, columnas_numericas)
         outliers_txt.write_text("\n".join(buf), encoding="utf-8")        
         #-----------------------------------------------------------------------------------------------------------------------
