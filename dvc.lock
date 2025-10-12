@@ -1,99 +1,161 @@
 schema: '2.0'
 stages:
-  prepare:
-    cmd: python src/prepare.py
+  load_data:
+    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/01_load_data.py
     deps:
     - path: data/raw/power_tetouan_city_modified.csv
       hash: md5
       md5: 877912f20b66bcc5a56223d31d788164
       size: 4564430
-    - path: params.yaml
+    - path: src/classes/LoadData.py
       hash: md5
-      md5: fcb09abb6d029a9459cc332f634513a0
-      size: 427
-    - path: src/prepare.py
+      md5: f984fd859f71cc3b5ad9ce90471bbdb7
+      size: 5689
+    - path: src/pipeline/01_load_data.py
       hash: md5
-      md5: 967c88bb61ec7e2e6043a43e0dcfa4e7
-      size: 1922
+      md5: 1586dfeef83d1f23fe4f7963b06622fb
+      size: 758
+    params:
+      params.yaml:
+        data.interim_loaded: data/interim/loaded.parquet
+        data.raw_path: data/raw/power_tetouan_city_modified.csv
+        data.source: file
+        features.datetime_column: datetime
     outs:
-    - path: data/interim/modified_clean.parquet
+    - path: data/interim/loaded.parquet
       hash: md5
-      md5: a369109ba5b9e37c1c9c4a9cd7a2601f
-      size: 1977742
-    - path: reports/eda_prepare.json
-      hash: md5
-      md5: 93863e2d7374f894735a1f4604c31350
-      size: 310
-  featurize:
-    cmd: python src/featurize.py
+      md5: 869bb83e16756f309eda38e3720111f4
+      size: 2047191
+  explore_data:
+    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/02_explore_data.py
     deps:
-    - path: data/interim/modified_clean.parquet
+    - path: data/interim/loaded.parquet
       hash: md5
-      md5: a369109ba5b9e37c1c9c4a9cd7a2601f
-      size: 1977742
-    - path: params.yaml
+      md5: 869bb83e16756f309eda38e3720111f4
+      size: 2047191
+    - path: src/classes/ExploreData.py
       hash: md5
-      md5: fcb09abb6d029a9459cc332f634513a0
-      size: 427
-    - path: reports/eda_prepare.json
+      md5: 38f91a0114218f09867228e21ed502a3
+      size: 14146
+    - path: src/pipeline/02_explore_data.py
       hash: md5
-      md5: 93863e2d7374f894735a1f4604c31350
-      size: 310
-    - path: src/featurize.py
-      hash: md5
-      md5: d61c1b5f16cededf28d34f439e583c34
-      size: 1701
+      md5: 8c2a8b8cf31e75a8a7f8472b4552f811
+      size: 716
+    params:
+      params.yaml:
+        eda.sample_rows: 5
+        reports.eda_dir: reports/eda
     outs:
-    - path: data/processed/meta.json
+    - path: reports/eda
       hash: md5
-      md5: e51ebc9eb01a7a3fefa743ab32b58a64
-      size: 104
-    - path: data/processed/modified_processed.parquet
-      hash: md5
-      md5: 574aa7e84975313fe897aff418b18904
-      size: 2048524
-  train:
-    cmd: python src/train.py
+      md5: 04b3038cc92356d814645ffa3f674ed8.dir
+      size: 321552
+      nfiles: 13
+  preprocess_data:
+    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/03_preprocess_data.py
     deps:
-    - path: data/processed/meta.json
+    - path: data/interim/loaded.parquet
       hash: md5
-      md5: e51ebc9eb01a7a3fefa743ab32b58a64
-      size: 104
-    - path: data/processed/modified_processed.parquet
+      md5: 869bb83e16756f309eda38e3720111f4
+      size: 2047191
+    - path: src/classes/PreprocessData.py
       hash: md5
-      md5: 574aa7e84975313fe897aff418b18904
-      size: 2048524
-    - path: params.yaml
+      md5: 7a67ea92bf08368a7f32df34c81d2b23
+      size: 13448
+    - path: src/pipeline/03_preprocess_data.py
       hash: md5
-      md5: fcb09abb6d029a9459cc332f634513a0
-      size: 427
-    - path: src/train.py
-      hash: md5
-      md5: fad8f642880de709c55bbb9357efaf38
-      size: 3007
+      md5: 963ce9789179216d71a741ccb815217a
+      size: 1101
+    params:
+      params.yaml:
+        data.cleaned: data/processed/cleaned_sample.parquet
+        data.test: data/processed/test.parquet
+        data.train: data/processed/train.parquet
+        features.datetime_column: datetime
+        features.lags:
+        - 1
+        - 24
+        - 168
+        features.target.preferred: zone_1_power_consumption
+        split.random_state: 42
+        split.test_size: 0.3
     outs:
-    - path: models/
+    - path: data/processed/test.parquet
       hash: md5
-      md5: 25f67f79129e33dd533c533e1581603e.dir
-      size: 437539415
-      nfiles: 3
-    - path: reports/model_metrics.csv
+      md5: ba15e6d826fe45501b639256412f02b9
+      size: 29299
+    - path: data/processed/train.parquet
       hash: md5
-      md5: 2ac0aa8dbc2f3f2d999af191abf1478d
-      size: 273
-  evaluate:
-    cmd: python src/evaluate.py
+      md5: a0c2ed5961cdcb25e918d468b58bdc5f
+      size: 60369
+  train_model:
+    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/04_train_model.py
     deps:
-    - path: reports/model_metrics.csv
+    - path: data/processed/train.parquet
       hash: md5
-      md5: 2ac0aa8dbc2f3f2d999af191abf1478d
-      size: 273
-    - path: src/evaluate.py
+      md5: a0c2ed5961cdcb25e918d468b58bdc5f
+      size: 60369
+    - path: src/classes/TrainModel.py
       hash: md5
-      md5: da3c6ed5930b20c37b901cb32f83c3b5
-      size: 611
+      md5: 332a30b61e5a8c66f4613cb9c90f7f1d
+      size: 2983
+    - path: src/pipeline/04_train_model.py
+      hash: md5
+      md5: fbc9e0fb5b297454015010b7fc5a7bc2
+      size: 757
+    params:
+      params.yaml:
+        features.target.preferred: zone_1_power_consumption
+        model.model_params:
+          n_estimators: 800
+          learning_rate: 0.05
+          max_depth: 6
+          min_child_weight: 3
+          subsample: 0.8
+          colsample_bytree: 0.8
+          gamma: 0.1
+          reg_lambda: 1.0
+          reg_alpha: 0.1
+          random_state: 42
+          objective: reg:squarederror
+          n_jobs: -1
+        model.path: models/power_tetouan_model.pkl
     outs:
-    - path: reports/figures/rmse_by_model.png
+    - path: models/power_tetouan_model.pkl
       hash: md5
-      md5: faf146a7a3b1c4067aaba6fe50702d18
-      size: 21647
+      md5: bd0fc5ec2c1fe4058e57f6b9c5ef545b
+      size: 2673235
+  evaluate_model:
+    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/05_evaluate_model.py
+    deps:
+    - path: data/processed/test.parquet
+      hash: md5
+      md5: ba15e6d826fe45501b639256412f02b9
+      size: 29299
+    - path: models/power_tetouan_model.pkl
+      hash: md5
+      md5: bd0fc5ec2c1fe4058e57f6b9c5ef545b
+      size: 2673235
+    - path: src/classes/EvaluateModel.py
+      hash: md5
+      md5: 4b3320ddcfb49605a308845bfa193de5
+      size: 5900
+    - path: src/pipeline/05_evaluate_model.py
+      hash: md5
+      md5: 190dd833068f7280c7f0a71df19b6b9a
+      size: 1012
+    params:
+      params.yaml:
+        features.target.preferred: zone_1_power_consumption
+        metrics.path: metrics/metrics.json
+        reports.figures_dir: reports/figures
+    outs:
+    - path: metrics/metrics.json
+      hash: md5
+      md5: 8d04649e136f3d2d8737c76b3452222d
+      size: 219
+    - path: reports/figures
+      hash: md5
+      md5: 57cfed4b58f85ac904c058c6286d8787.dir
+      size: 299639
+      nfiles: 2

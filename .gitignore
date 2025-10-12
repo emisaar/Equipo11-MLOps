@@ -23,13 +23,15 @@ tmp/
 
 # Project files
 models/
-reports/figures/
+reports/
 /models
+local-dvc-storage/
+metrics/
 
 # Data files
-#data/interim/
-#data/processed/
-#data/raw/
+data/interim/
+data/processed/
+data/raw/
 
 # DVC caches ignored by DVC
 #.dvc/
