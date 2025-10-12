@@ -61,6 +61,10 @@ dvc metrics show
 # Ver el DAG - Directed Acyclic Graph (Grafo Dirigido Acíclico).
 dvc dag
 
+# Versiona los datos limpios, procesados y los sube
+dvc add data/processed/cleaned_sample.parquet   # Dataset limpio
+git add data/processed/*.dvc .gitignore         # Añade archivos al área de preparación (staging area)
+
 # Configuracion de un carpeta local para el almacenamineto remoto
 mkdir -p local-dvc-storage
 dvc remote add -d localstorage local-dvc-storage
@@ -70,10 +74,4 @@ git commit -m "chore(dvc): configure remote storage (local)"
 
 # Sube los datos al almacenamiento remoto
 dvc push -r localstorage
-
-# Versiona los datos limpios, procesados y los sube
-dvc add data/interim/loaded.parquet     # EDA y Limpieza
-dvc add data/processed/test.parquet     # Dataset para Test
-dvc add data/processed/train.parquet    # Dataset para Train
-dvc push
 ```

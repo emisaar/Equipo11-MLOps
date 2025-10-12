@@ -24,15 +24,15 @@ tmp/
 # Project files
 models/
 reports/figures/
+/models
 
 # Data files
-data/interim/
-data/processed/
+#data/interim/
+#data/processed/
+#data/raw/
 
 # DVC caches ignored by DVC
-/models
-data/raw/
-.dvc/
+#.dvc/
 .dvcignore
 .dvc/tmp/
 .dvc/cache/
@@ -42,3 +42,4 @@ data/raw/
 .idea/
 *.pyc
 *.pyo
+

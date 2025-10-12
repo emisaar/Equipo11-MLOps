@@ -1,10 +1,12 @@
 stages:
   load_data:
-    cmd: python src/pipeline/01_load_data.py
+    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/01_load_data.py
     deps:
-      - src/pipeline/01_load_data.py      
+      - src/pipeline/01_load_data.py 
+      - src/classes/LoadData.py    
       - ${data.raw_path}
     params:
+      - data.source
       - features.datetime_column
       - data.raw_path
       - data.interim_loaded
@@ -12,9 +14,10 @@ stages:
       - ${data.interim_loaded}
 
   explore_data:
-    cmd: python src/pipeline/02_explore_data.py
+    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/02_explore_data.py
     deps:
-      - src/pipeline/02_explore_data.py      
+      - src/pipeline/02_explore_data.py 
+      - src/classes/ExploreData.py     
       - ${data.interim_loaded}
     params:
       - reports.eda_dir
@@ -23,9 +26,10 @@ stages:
       - ${reports.eda_dir}
 
   preprocess_data:
-    cmd: python src/pipeline/03_preprocess_data.py
+    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/03_preprocess_data.py
     deps:
-      - src/pipeline/03_preprocess_data.py      
+      - src/pipeline/03_preprocess_data.py     
+      - src/classes/PreprocessData.py 
       - ${data.interim_loaded}
     params:
       - features.datetime_column
@@ -35,26 +39,29 @@ stages:
       - split.random_state
       - data.train
       - data.test
+      - data.cleaned
     outs:
       - ${data.train}
       - ${data.test}
 
   train_model:
-    cmd: python src/pipeline/04_train_model.py
+    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/04_train_model.py
     deps:
       - src/pipeline/04_train_model.py      
+      - src/classes/TrainModel.py
       - ${data.train}
     params:
       - features.target.preferred
       - model.path
-      - model.rf_params
+      - model.model_params
     outs:
       - ${model.path}
 
   evaluate_model:
-    cmd: python src/pipeline/05_evaluate_model.py
+    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/05_evaluate_model.py
     deps:
-      - src/pipeline/05_evaluate_model.py      
+      - src/pipeline/05_evaluate_model.py     
+      - src/classes/EvaluateModel.py 
       - ${data.test}
       - ${model.path}
     params:
