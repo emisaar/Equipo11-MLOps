@@ -9,8 +9,8 @@ stages:
       size: 4564430
     - path: src/classes/LoadData.py
       hash: md5
-      md5: f984fd859f71cc3b5ad9ce90471bbdb7
-      size: 5689
+      md5: 3f3f8ad1b03986330e076fb2436bc45c
+      size: 5502
     - path: src/pipeline/01_load_data.py
       hash: md5
       md5: 1586dfeef83d1f23fe4f7963b06622fb
@@ -35,8 +35,8 @@ stages:
       size: 2047191
     - path: src/classes/ExploreData.py
       hash: md5
-      md5: 38f91a0114218f09867228e21ed502a3
-      size: 14146
+      md5: 1da97000e8379ae46af9470b6b71320d
+      size: 14876
     - path: src/pipeline/02_explore_data.py
       hash: md5
       md5: 8c2a8b8cf31e75a8a7f8472b4552f811
@@ -60,8 +60,8 @@ stages:
       size: 2047191
     - path: src/classes/PreprocessData.py
       hash: md5
-      md5: 7a67ea92bf08368a7f32df34c81d2b23
-      size: 13448
+      md5: 7e912508ce1e35bd9893c9668b4ed9ad
+      size: 13527
     - path: src/pipeline/03_preprocess_data.py
       hash: md5
       md5: 963ce9789179216d71a741ccb815217a
@@ -97,8 +97,8 @@ stages:
       size: 60369
     - path: src/classes/TrainModel.py
       hash: md5
-      md5: 332a30b61e5a8c66f4613cb9c90f7f1d
-      size: 2983
+      md5: 6e0edda3840899cfee7b1e965740f954
+      size: 2948
     - path: src/pipeline/04_train_model.py
       hash: md5
       md5: fbc9e0fb5b297454015010b7fc5a7bc2
@@ -138,8 +138,8 @@ stages:
       size: 2673235
     - path: src/classes/EvaluateModel.py
       hash: md5
-      md5: 4b3320ddcfb49605a308845bfa193de5
-      size: 5900
+      md5: 7208ae6bad61a37349ca96f0c657e46b
+      size: 6095
     - path: src/pipeline/05_evaluate_model.py
       hash: md5
       md5: 190dd833068f7280c7f0a71df19b6b9a
@@ -152,7 +152,7 @@ stages:
     outs:
     - path: metrics/metrics.json
       hash: md5
-      md5: 8d04649e136f3d2d8737c76b3452222d
+      md5: 33c7840f3e813116364668866fa3eb1c
       size: 219
     - path: reports/figures
       hash: md5
