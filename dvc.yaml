@@ -1,75 +1,87 @@
 stages:
   load_data:
-    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/01_load_data.py
+    cmd: python pipeline/load_data.py
     deps:
-      - src/pipeline/01_load_data.py 
-      - src/classes/LoadData.py    
+      - pipeline/load_data.py
+      - src/dataset.py
+      - src/utils.py
       - ${data.raw_path}
     params:
       - data.source
-      - features.datetime_column
       - data.raw_path
       - data.interim_loaded
+      - preprocessing.datetime_column
     outs:
       - ${data.interim_loaded}
 
-  explore_data:
-    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/02_explore_data.py
+  clean_data:
+    cmd: python pipeline/clean_data.py
     deps:
-      - src/pipeline/02_explore_data.py 
-      - src/classes/ExploreData.py     
+      - pipeline/clean_data.py
+      - src/dataset.py
+      - src/utils.py
+      - src/config.py
       - ${data.interim_loaded}
     params:
-      - reports.eda_dir
-      - eda.sample_rows
+      - data.interim_loaded
+      - data.cleaned
+      - preprocessing.datetime_column
     outs:
-      - ${reports.eda_dir}
+      - ${data.cleaned}
 
   preprocess_data:
-    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/03_preprocess_data.py
+    cmd: python pipeline/preprocess.py
     deps:
-      - src/pipeline/03_preprocess_data.py     
-      - src/classes/PreprocessData.py 
-      - ${data.interim_loaded}
+      - pipeline/preprocess.py
+      - src/features.py
+      - ${data.cleaned}
     params:
-      - features.datetime_column
-      - features.target.preferred
-      - features.lags
-      - split.test_size
-      - split.random_state
+      - data.cleaned
       - data.train
       - data.test
-      - data.cleaned
+      - preprocessing.datetime_column
+      - preprocessing.target_column
+      - preprocessing.lags
+      - split.test_size
+      - split.random_state
     outs:
       - ${data.train}
       - ${data.test}
 
-  train_model:
-    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/04_train_model.py
+  train_models:
+    cmd: python pipeline/train.py
     deps:
-      - src/pipeline/04_train_model.py      
-      - src/classes/TrainModel.py
+      - pipeline/train.py
+      - src/modeling/train.py
+      - src/modeling/models.py
       - ${data.train}
     params:
-      - features.target.preferred
-      - model.path
-      - model.model_params
+      - data.train
+      - models.output_dir
+      - models.types
+      - models.var
+      - models.random_forest
+      - models.xgboost
+      - models.lstm
     outs:
-      - ${model.path}
+      - ${models.output_dir}
 
-  evaluate_model:
-    cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/05_evaluate_model.py
+  evaluate_models:
+    cmd: python pipeline/evaluate.py
     deps:
-      - src/pipeline/05_evaluate_model.py     
-      - src/classes/EvaluateModel.py 
+      - pipeline/evaluate.py
+      - src/modeling/evaluate.py
+      - src/plots.py
       - ${data.test}
-      - ${model.path}
+      - ${models.output_dir}
     params:
-      - features.target.preferred
-      - metrics.path
-      - reports.figures_dir
+      - data.test
+      - models.output_dir
+      - evaluation.metrics_output
+      - evaluation.figures_output
+      - evaluation.n_steps
     outs:
-      - ${reports.figures_dir}
+      - ${evaluation.figures_output}
     metrics:
-      - ${metrics.path}:
+      - ${evaluation.metrics_output}:
           cache: false

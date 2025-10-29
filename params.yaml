@@ -2,52 +2,95 @@ data:
   source: file
   raw_path: data/raw/power_tetouan_city_modified.csv
   interim_loaded: data/interim/loaded.parquet
+  cleaned: data/processed/cleaned.parquet
+  preprocessed: data/processed/preprocessed.parquet
   train: data/processed/train.parquet
   test: data/processed/test.parquet
-  cleaned: data/processed/cleaned_sample.parquet
 
-features:
+preprocessing:
   datetime_column: datetime
-  target:
-    # Selecciona la zona objetivo (ej.: "Zone 1", "Zone 2" o "Zone 3")
-    preferred: zone_1_power_consumption
-    alternatives:
-    - zone_2_power_consumption
-    - zone_3_power_consumption
-  # Lags en pasos (si tus datos son horarios: 1, 24, 168 ~ 1h, 1d, 7d)
-  lags: [1, 24, 168]
+  target_column: zone_1_power_consumption
+  # Configuración de detección de outliers
+  outlier_method: iqr  # Opciones: 'iqr', 'zscore'
+  outlier_threshold: 1.5  # Para IQR: multiplicador; Para Z-score: umbral
+  # Lags en pasos temporales (10 min por paso)
+  # 6 = 1 hora, 144 = 1 día, 1008 = 1 semana
+  lags: [6, 144, 1008]
 
 split:
   test_size: 0.3
   random_state: 42
 
-eda:
-  sample_rows: 5
+# Configuración de modelos
+models:
+  output_dir: models
+  # Tipos de modelos a entrenar: VAR, RandomForest, XGBoost, LSTM
+  types:
+    - VAR
+    - RandomForest
+    - XGBoost
+    # - LSTM
 
-model:
-  path: models/power_tetouan_model.pkl
-  model_params:
-    n_estimators: 800
-    learning_rate: 0.05
-    max_depth: 6
-    min_child_weight: 3
-    subsample: 0.8
-    colsample_bytree: 0.8
-    gamma: 0.1
-    reg_lambda: 1.0
-    reg_alpha: 0.1
+  # Configuración de modelo VAR (Vector AutoRegression)
+  var:
+    max_lags: 10
+    n_splits: 5
+
+  # Configuración de Random Forest
+  random_forest:
+    n_iter: 10  # Iteraciones de búsqueda aleatoria
+    n_splits: 5  # Folds de validación cruzada
     random_state: 42
-    objective: 'reg:squarederror'    
-    n_jobs: -1
+    # Espacio de búsqueda de hiperparámetros
+    param_distributions:
+      n_estimators: [100, 200, 500, 800]
+      max_depth: [5, 10, 15, 20, null]
+      min_samples_split: [2, 5, 10]
+      min_samples_leaf: [1, 2, 4]
+      max_features: ['sqrt', 'log2']
 
-mlfow:
-  tracking_uri: http://localhost:5000 
+  # Configuración de XGBoost
+  xgboost:
+    n_iter: 10
+    n_splits: 5
+    random_state: 42
+    # Espacio de búsqueda de hiperparámetros
+    param_distributions:
+      n_estimators: [100, 200, 500, 800]
+      learning_rate: [0.01, 0.05, 0.1, 0.2]
+      max_depth: [3, 5, 7, 10]
+      min_child_weight: [1, 3, 5]
+      subsample: [0.7, 0.8, 0.9, 1.0]
+      colsample_bytree: [0.7, 0.8, 0.9, 1.0]
+      gamma: [0, 0.1, 0.2]
+      reg_lambda: [0.1, 1.0, 10.0]
+      reg_alpha: [0, 0.1, 1.0]
+
+  # Configuración de LSTM
+  lstm:
+    n_steps_in: 144  # Ventana de entrada (144 = 24 horas)
+    epochs: 30
+    batch_size: 32
+    random_state: 42
+    # Arquitectura de red
+    units_layer1: 128
+    units_layer2: 64
+    dropout_rate: 0.2
+    learning_rate: 0.001
+
+# Configuración de evaluación
+evaluation:
+  n_steps: 10  # Pasos a predecir para evaluación
+  metrics_output: metrics/metrics.json
+  figures_output: reports/figures
+
+# MLflow tracking
+mlflow:
+  tracking_uri: http://localhost:5000
   experiment_name: TetouanCityPower
-  run_name: TetouanPowerModel    
+  run_name: MultiModelComparison
 
-metrics:
-  path: metrics/metrics.json
-
+# Reportes y visualizaciones
 reports:
   eda_dir: reports/eda
   figures_dir: reports/figures
