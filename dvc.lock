@@ -5,24 +5,24 @@ stages:
     deps:
     - path: data/raw/power_tetouan_city_modified.csv
       hash: md5
-      md5: b86ef39f691bde959e50ca714aa1bcb5
-      size: 4510965
+      md5: 877912f20b66bcc5a56223d31d788164
+      size: 4564430
     - path: pipeline/load_data.py
       hash: md5
-      md5: e1c5637b8665e3df965f59a5c1693eea
-      size: 613
+      md5: 28779a965c05c8e21c93255211d1c4ce
+      size: 635
     - path: src/data/database.py
       hash: md5
-      md5: c083c250431dcda05e2c683e15dec05c
-      size: 3662
+      md5: c3c6938d402aeeda6412e594fb61754f
+      size: 3787
     - path: src/data/loaders.py
       hash: md5
-      md5: 06f340940b2adfddf4e3f16495f08ef9
-      size: 6486
+      md5: 6185c5814d9de21478aa51b52419ac42
+      size: 6692
     - path: src/preprocessing/normalization.py
       hash: md5
-      md5: 9a8fd3bb4b906224627361f6d29faaab
-      size: 1421
+      md5: d5abfad1a1047f110446d459b7549942
+      size: 1479
     params:
       params.yaml:
         data.interim_loaded: data/interim/loaded.parquet
@@ -64,24 +64,24 @@ stages:
     deps:
     - path: data/processed/cleaned.parquet
       hash: md5
-      md5: 5b2a52986c29ed3c2ed7726706dc8185
-      size: 2023628
+      md5: 164e561df45895454e3eac245723dcf7
+      size: 2023603
     - path: pipeline/preprocess.py
       hash: md5
-      md5: e05fb3fdab4f0934fc0acdff0ee53dc7
-      size: 917
+      md5: af48c83898b1212ba0fbc5b86ec2e09b
+      size: 944
     - path: src/features/engineering.py
       hash: md5
-      md5: 582c88f8c500507d493ebad547a7e315
-      size: 3111
+      md5: 8f82a798b4f74de451165ea91ddd23bc
+      size: 3196
     - path: src/features/preprocessor.py
       hash: md5
-      md5: a9430051b181be8fcbafffb47981f78b
-      size: 12633
+      md5: d2fe8dc88623623437008f3474f58288
+      size: 12956
     - path: src/features/temporal.py
       hash: md5
-      md5: 9a90eec96a3e1d44024634e7634a742c
-      size: 2088
+      md5: 04a286b24d8d0f6e855e6b22cb3bfdce
+      size: 2165
     params:
       params.yaml:
         data.cleaned: data/processed/cleaned.parquet
@@ -98,12 +98,12 @@ stages:
     outs:
     - path: data/processed/test.parquet
       hash: md5
-      md5: 93390945533798af7715734a8a9d0971
-      size: 885744
+      md5: b47dac32c9ccdc457c128f512566c35a
+      size: 885741
     - path: data/processed/train.parquet
       hash: md5
-      md5: 769bcda07fc2e6fe0dc98e275ecbf241
-      size: 2092576
+      md5: 6d6165313ef629e5f4d4349d5e6de975
+      size: 2092573
   train_model:
     cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/04_train_model.py
     deps:
@@ -184,28 +184,28 @@ stages:
       size: 2047191
     - path: pipeline/clean_data.py
       hash: md5
-      md5: 12696782c0ecda98982925a3a97734b2
-      size: 613
+      md5: cc9a8bab4f9bdad094c29017bcd6da0c
+      size: 634
     - path: src/config.py
       hash: md5
-      md5: 79dc65c708b49e7f82cee88a0724ed44
-      size: 3523
+      md5: 649bd6db7c79a6d910acc9086ae78d7c
+      size: 3647
     - path: src/preprocessing/cleaner.py
       hash: md5
-      md5: d2c79421392782814e5f4b30ea74a8b1
-      size: 7970
+      md5: ef1727a1a0d14ca12043d84ba0297ae3
+      size: 8211
     - path: src/preprocessing/imputation.py
       hash: md5
-      md5: dbf05f8cf80944e8f3b0cadee7f7a875
-      size: 1730
+      md5: 9d0ac834f51d89547f96608567fcf99e
+      size: 1794
     - path: src/preprocessing/normalization.py
       hash: md5
-      md5: 9a8fd3bb4b906224627361f6d29faaab
-      size: 1421
+      md5: d5abfad1a1047f110446d459b7549942
+      size: 1479
     - path: src/preprocessing/outliers.py
       hash: md5
-      md5: c93dc00e11015544aa0a604ce64828aa
-      size: 6654
+      md5: 83fbc71c53eff4b315117626218cbbea
+      size: 6819
     params:
       params.yaml:
         data.cleaned: data/processed/cleaned.parquet
@@ -214,27 +214,27 @@ stages:
     outs:
     - path: data/processed/cleaned.parquet
       hash: md5
-      md5: 5b2a52986c29ed3c2ed7726706dc8185
-      size: 2023628
+      md5: 164e561df45895454e3eac245723dcf7
+      size: 2023603
   train_models:
     cmd: python pipeline/train.py
     deps:
     - path: data/processed/train.parquet
       hash: md5
-      md5: 769bcda07fc2e6fe0dc98e275ecbf241
-      size: 2092576
+      md5: 6d6165313ef629e5f4d4349d5e6de975
+      size: 2092573
     - path: pipeline/train.py
       hash: md5
-      md5: 581e03fce0fddaa186da87d91747018f
-      size: 1961
+      md5: 65d35fdbd370b7ad25e9e5c3fe31cc8e
+      size: 2014
     - path: src/modeling/models.py
       hash: md5
-      md5: 127c00080b81914e1916307fd01bb9ec
-      size: 26656
+      md5: a2eb1f34df44ddbef3dcaad12d1d4757
+      size: 29280
     - path: src/modeling/train.py
       hash: md5
-      md5: b55c6e66cfe8602d35618af79255d88b
-      size: 8899
+      md5: 733285c9179e05b44b7a461e9709c94a
+      size: 9221
     params:
       params.yaml:
         data.train: data/processed/train.parquet
@@ -331,33 +331,33 @@ stages:
     outs:
     - path: models
       hash: md5
-      md5: fbb46c17ced5b71d6bb56b56fc215ef3.dir
-      size: 332457455
+      md5: 534265055b4c75e6d274dd95269f70c5.dir
+      size: 332447999
       nfiles: 7
   evaluate_models:
     cmd: python pipeline/evaluate.py
     deps:
     - path: data/processed/test.parquet
       hash: md5
-      md5: 93390945533798af7715734a8a9d0971
-      size: 885744
+      md5: b47dac32c9ccdc457c128f512566c35a
+      size: 885741
     - path: models
       hash: md5
-      md5: fbb46c17ced5b71d6bb56b56fc215ef3.dir
-      size: 332457455
+      md5: 534265055b4c75e6d274dd95269f70c5.dir
+      size: 332447999
       nfiles: 7
     - path: pipeline/evaluate.py
       hash: md5
-      md5: d051f04f5c9b19098769b757ad07cbed
-      size: 844
+      md5: a9a4bac1f94ff1990f13708834e96f69
+      size: 871
     - path: src/modeling/evaluate.py
       hash: md5
-      md5: a9fa23965ad622b3154ce0f8910c16cc
-      size: 10695
+      md5: 98f14ae9691c3c05720557493b687506
+      size: 11043
     - path: src/visualization/plots.py
       hash: md5
-      md5: 9d83e5385169db20d47b9f9988a4e1d7
-      size: 10190
+      md5: 3d37233f007eb7b47afb1a982609c31b
+      size: 10539
     params:
       params.yaml:
         data.test: data/processed/test.parquet
@@ -368,10 +368,10 @@ stages:
     outs:
     - path: metrics/metrics.json
       hash: md5
-      md5: e1053a5cdffa698301026b7f880d3e75
-      size: 1163
+      md5: 0b485ab9d20b91fe242e716111b973ae
+      size: 1216
     - path: reports/figures
       hash: md5
-      md5: 2b4222464763ae36f7a26053d9b6a7cb.dir
-      size: 200177
+      md5: 5f8a98a9216bd32d428cb75ed524501b.dir
+      size: 211688
       nfiles: 3

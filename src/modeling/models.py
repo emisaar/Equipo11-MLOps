@@ -14,6 +14,9 @@ from statsmodels.tsa.api import VAR
 # Modelos de ML
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import TimeSeriesSplit, RandomizedSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
 import xgboost as xgb
 
 # Deep Learning - Lazy import to avoid TensorFlow blocking on startup
@@ -328,11 +331,32 @@ class RandomForestModel(BaseModel):
         input_df = train_df[self.weather_cols + [self.target_col]]
         X_train_feat, y_train_feat = create_ml_features(input_df, self.target_col)
 
+        # Pipeline de preprocesamiento para columnas numéricas
+        num_features = X_train_feat.select_dtypes(include=["int64", "float64", "int32", "float32"]).columns.tolist()
+        num_pipe = Pipeline(steps=[
+            ("impMediana", SimpleImputer(strategy="median")),
+            ("minmax", MinMaxScaler())
+        ])
+        pre = ColumnTransformer(transformers=[
+            ("num_transf", num_pipe, num_features)
+        ], remainder="passthrough")
+
+        # Pipeline completo: preprocesamiento + estimador
+        rf_pipeline = Pipeline(steps=[
+            ("pre", pre),
+            ("reg", rf_model_base)
+        ])
+
         # Búsqueda aleatoria con validación cruzada temporal
         tscv = TimeSeriesSplit(n_splits=n_splits)
+        # Ajusta claves del espacio de búsqueda al nombre del paso del estimador en el Pipeline
+        param_distribuciones_rf_pipeline = {
+            f"reg__{k}": v for k, v in param_distribuciones_rf.items()
+        }
+
         random_search = RandomizedSearchCV(
-            estimator=rf_model_base,
-            param_distributions=param_distribuciones_rf,
+            estimator=rf_pipeline,
+            param_distributions=param_distribuciones_rf_pipeline,
             n_iter=n_iter,
             cv=tscv,
             scoring='neg_root_mean_squared_error',
@@ -493,11 +517,32 @@ class XGBoostModel(BaseModel):
         input_df = train_df[self.weather_cols + [self.target_col]]
         X_train_feat, y_train_feat = create_ml_features(input_df, self.target_col)
 
+        # Pipeline de preprocesamiento para columnas numéricas
+        num_features = X_train_feat.select_dtypes(include=["int64", "float64", "int32", "float32"]).columns.tolist()
+        num_pipe = Pipeline(steps=[
+            ("impMediana", SimpleImputer(strategy="median")),
+            ("minmax", MinMaxScaler())
+        ])
+        pre = ColumnTransformer(transformers=[
+            ("num_transf", num_pipe, num_features)
+        ], remainder="passthrough")
+
+        # Pipeline completo: preprocesamiento + estimador
+        xgb_pipeline = Pipeline(steps=[
+            ("pre", pre),
+            ("reg", xgb_model_base)
+        ])
+
         # Búsqueda aleatoria con validación cruzada temporal
         tscv = TimeSeriesSplit(n_splits=n_splits)
+        # Ajusta claves del espacio de búsqueda al nombre del paso del estimador en el Pipeline
+        param_distribuciones_xgb_pipeline = {
+            f"reg__{k}": v for k, v in param_distribuciones_xgb.items()
+        }
+
         random_search = RandomizedSearchCV(
-            estimator=xgb_model_base,
-            param_distributions=param_distribuciones_xgb,
+            estimator=xgb_pipeline,
+            param_distributions=param_distribuciones_xgb_pipeline,
             n_iter=n_iter,
             cv=tscv,
             scoring='neg_root_mean_squared_error',
