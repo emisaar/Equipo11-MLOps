@@ -39,6 +39,7 @@ class ModelEvaluator:
         Número de pasos a predecir para evaluación
     """
 
+    train_path: Path
     test_path: Path
     models_dir: Path
     metrics_output: Path
@@ -87,6 +88,14 @@ class ModelEvaluator:
         if not models:
             raise RuntimeError(f"No se encontraron modelos en {self.models_dir}")
 
+        # Carga datos de entrenamiento
+        print(f"Cargando datos de entrenamiento desde: {self.train_path}")
+        train_df = pd.read_parquet(self.train_path)
+        # Establece datetime como índice si existe en train
+        if 'datetime' in train_df.columns:
+            train_df = train_df.set_index('datetime')
+        print(f"   Datos de entrenamiento: {train_df.shape}")
+
         # Carga datos de prueba
         print(f"Cargando datos de prueba desde: {self.test_path}")
         test_df = pd.read_parquet(self.test_path)
@@ -100,7 +109,7 @@ class ModelEvaluator:
 
         # Genera predicciones
         print(f"\nGenerando predicciones ({self.n_steps} pasos)...")
-        predictions = self._generate_predictions(models, test_df)
+        predictions = self._generate_predictions(models, train_df)
 
         # Calcula métricas
         print("\nCalculando métricas...")
@@ -126,7 +135,7 @@ class ModelEvaluator:
     def _generate_predictions(
         self,
         models: Dict[str, Any],
-        test_df: pd.DataFrame
+        train_df: pd.DataFrame
     ) -> Dict[str, Any]:
         """
         Genera predicciones para todos los modelos.
@@ -135,8 +144,8 @@ class ModelEvaluator:
         ----------
         models : Dict[str, Any]
             Diccionario con modelos cargados
-        test_df : pd.DataFrame
-            DataFrame de prueba
+        train_df : pd.DataFrame
+            DataFrame histórico hasta el punto de corte de prueba
 
         Returns
         -------
@@ -149,7 +158,7 @@ class ModelEvaluator:
         if 'VAR' in models:
             print("  • Generando predicciones VAR...")
             var_model = models['VAR']
-            predictions['VAR'] = var_model.predict(test_df, n_steps=self.n_steps)
+            predictions['VAR'] = var_model.predict(train_df, n_steps=self.n_steps)
 
         # Modelos ML por zona
         for zone in POWER_COLS:
@@ -160,21 +169,21 @@ class ModelEvaluator:
             if rf_key in models:
                 print(f"  • Generando predicciones RF para {zone}...")
                 rf_model = models[rf_key]
-                zone_preds['RF'] = rf_model.predict(test_df, n_steps=self.n_steps)
+                zone_preds['RF'] = rf_model.predict(train_df, n_steps=self.n_steps)
 
             # XGBoost
             xgb_key = f'XGB_{zone}'
             if xgb_key in models:
                 print(f"  • Generando predicciones XGBoost para {zone}...")
                 xgb_model = models[xgb_key]
-                zone_preds['XGB'] = xgb_model.predict(test_df, n_steps=self.n_steps)
+                zone_preds['XGB'] = xgb_model.predict(train_df, n_steps=self.n_steps)
 
             # LSTM
             lstm_key = f'LSTM_{zone}'
             if lstm_key in models:
                 print(f"  • Generando predicciones LSTM para {zone}...")
                 lstm_model = models[lstm_key]
-                zone_preds['LSTM'] = lstm_model.predict(test_df, n_steps=self.n_steps)
+                zone_preds['LSTM'] = lstm_model.predict(train_df, n_steps=self.n_steps)
 
             if zone_preds:
                 predictions[zone] = zone_preds

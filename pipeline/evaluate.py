@@ -15,6 +15,7 @@ if __name__ == "__main__":
 
     # Ejecuta evaluación
     evaluator = ModelEvaluator(
+        train_path=Path(params["data"]["train"]),
         test_path=Path(params["data"]["test"]),
         models_dir=Path(params["models"]["output_dir"]),
         metrics_output=Path(params["evaluation"]["metrics_output"]),
