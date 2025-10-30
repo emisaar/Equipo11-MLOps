@@ -298,7 +298,7 @@ class RandomForestModel(BaseModel):
             Distribuciones de parámetros para RandomizedSearchCV.
             Si no se proporciona, usa valores por defecto.
         """
-        from src.features import create_ml_features
+        from src.features.engineering import create_ml_features
 
         print(f"  • Entrenando Random Forest para: {target_col}...")
 
@@ -460,7 +460,7 @@ class XGBoostModel(BaseModel):
             Distribuciones de parámetros para RandomizedSearchCV.
             Si no se proporciona, usa valores por defecto.
         """
-        from src.features import create_ml_features
+        from src.features.engineering import create_ml_features
 
         print(f"  • Entrenando XGBoost para: {target_col}...")
 

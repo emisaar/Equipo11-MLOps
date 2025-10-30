@@ -6,7 +6,7 @@ Carga datos desde CSV y convierte a formato Parquet.
 
 from pathlib import Path
 import yaml
-from src.dataset import LoadData
+from src.data.loaders import LoadData
 
 
 if __name__ == "__main__":

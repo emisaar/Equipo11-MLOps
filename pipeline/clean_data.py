@@ -6,7 +6,7 @@ Ejecuta limpieza completa: outliers, imputación, transformaciones.
 
 from pathlib import Path
 import yaml
-from src.dataset import DatasetCleaner
+from src.preprocessing.cleaner import DatasetCleaner
 
 
 if __name__ == "__main__":

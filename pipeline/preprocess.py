@@ -6,7 +6,7 @@ Crea features, genera lags y divide en train/test.
 
 from pathlib import Path
 import yaml
-from src.features import PreprocessData
+from src.features.preprocessor import PreprocessData
 
 
 if __name__ == "__main__":

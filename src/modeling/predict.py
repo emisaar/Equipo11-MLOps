@@ -157,7 +157,7 @@ def predict_recursive_ml(
     ...     variable_objetivo='zone_1_power_consumption'
     ... )
     """
-    from src.features import create_ml_features
+    from src.features.engineering import create_ml_features
 
     df_recursivo = df_historico.copy()
     predicciones = []

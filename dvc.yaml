@@ -3,8 +3,9 @@ stages:
     cmd: python pipeline/load_data.py
     deps:
       - pipeline/load_data.py
-      - src/dataset.py
-      - src/utils.py
+      - src/data/loaders.py
+      - src/data/database.py
+      - src/preprocessing/normalization.py
       - ${data.raw_path}
     params:
       - data.source
@@ -18,8 +19,10 @@ stages:
     cmd: python pipeline/clean_data.py
     deps:
       - pipeline/clean_data.py
-      - src/dataset.py
-      - src/utils.py
+      - src/preprocessing/cleaner.py
+      - src/preprocessing/normalization.py
+      - src/preprocessing/imputation.py
+      - src/preprocessing/outliers.py
       - src/config.py
       - ${data.interim_loaded}
     params:
@@ -33,7 +36,9 @@ stages:
     cmd: python pipeline/preprocess.py
     deps:
       - pipeline/preprocess.py
-      - src/features.py
+      - src/features/preprocessor.py
+      - src/features/engineering.py
+      - src/features/temporal.py
       - ${data.cleaned}
     params:
       - data.cleaned
@@ -71,7 +76,7 @@ stages:
     deps:
       - pipeline/evaluate.py
       - src/modeling/evaluate.py
-      - src/plots.py
+      - src/visualization/plots.py
       - ${data.test}
       - ${models.output_dir}
     params:

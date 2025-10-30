@@ -12,7 +12,7 @@ import json
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 from src.modeling.train import load_all_models
-from src.plots import plot_model_comparison
+from src.visualization.plots import plot_model_comparison
 from src.config import POWER_COLS, N_STEPS_PREDICT
 
 
@@ -81,14 +81,14 @@ class ModelEvaluator:
         self.figures_output.mkdir(parents=True, exist_ok=True)
 
         # Carga modelos
-        print(f"\n📦 Cargando modelos desde: {self.models_dir}")
+        print(f"\nCargando modelos desde: {self.models_dir}")
         models = load_all_models(self.models_dir)
 
         if not models:
             raise RuntimeError(f"No se encontraron modelos en {self.models_dir}")
 
         # Carga datos de prueba
-        print(f"📊 Cargando datos de prueba desde: {self.test_path}")
+        print(f"Cargando datos de prueba desde: {self.test_path}")
         test_df = pd.read_parquet(self.test_path)
 
         # Establece datetime como índice si existe
@@ -99,7 +99,7 @@ class ModelEvaluator:
         print(f"   Rango temporal: {test_df.index[0]} a {test_df.index[-1]}")
 
         # Genera predicciones
-        print(f"\n🔮 Generando predicciones ({self.n_steps} pasos)...")
+        print(f"\nGenerando predicciones ({self.n_steps} pasos)...")
         predictions = self._generate_predictions(models, test_df)
 
         # Calcula métricas
@@ -325,7 +325,7 @@ class ModelEvaluator:
         print("="*80)
 
         for zone in POWER_COLS:
-            print(f"\n📍 {zone.upper()}")
+            print(f"\n{zone.upper()}")
             print("-"*80)
 
             if zone in metrics:
@@ -338,12 +338,11 @@ class ModelEvaluator:
                     mae = model_metrics['MAE']
                     mape = model_metrics['MAPE']
 
-                    symbol = "🏆" if rmse < best_rmse else "  "
-                    print(f"{symbol} {model_name:15s} | RMSE: {rmse:8.4f} | MAE: {mae:8.4f} | MAPE: {mape:6.2f}%")
+                    print(f"{model_name:15s} | RMSE: {rmse:8.4f} | MAE: {mae:8.4f} | MAPE: {mape:6.2f}%")
 
                     if rmse < best_rmse:
                         best_rmse = rmse
                         best_model = model_name
 
                 if best_model:
-                    print(f"\n   ✨ Mejor modelo: {best_model} (RMSE={best_rmse:.4f})")
+                    print(f"\n   Mejor modelo: {best_model} (RMSE={best_rmse:.4f})")
