@@ -238,6 +238,9 @@ stages:
     params:
       params.yaml:
         data.train: data/processed/train.parquet
+        mlflow.experiment_name: TetouanCityPower
+        mlflow.run_name: MultiModelComparison
+        mlflow.tracking_uri: http://localhost:5000
         models.lstm:
           n_steps_in: 144
           epochs: 30
@@ -341,6 +344,10 @@ stages:
       hash: md5
       md5: b47dac32c9ccdc457c128f512566c35a
       size: 885741
+    - path: data/processed/train.parquet
+      hash: md5
+      md5: 6d6165313ef629e5f4d4349d5e6de975
+      size: 2092573
     - path: models
       hash: md5
       md5: 534265055b4c75e6d274dd95269f70c5.dir
@@ -348,12 +355,12 @@ stages:
       nfiles: 7
     - path: pipeline/evaluate.py
       hash: md5
-      md5: b3bb2d52b6942cbca299e4e562c54d03
-      size: 922
+      md5: 1f4f1edec42a2707df94327394df506c
+      size: 1606
     - path: src/modeling/evaluate.py
       hash: md5
-      md5: c2fd5b2e58d7f133ab50b10e3be52324
-      size: 11502
+      md5: 0e7e258bc2a3d42853b053718321c665
+      size: 12987
     - path: src/visualization/plots.py
       hash: md5
       md5: 3d37233f007eb7b47afb1a982609c31b
@@ -364,12 +371,17 @@ stages:
         evaluation.figures_output: reports/figures
         evaluation.metrics_output: metrics/metrics.json
         evaluation.n_steps: 10
+        mlflow.champion_higher_is_better: false
+        mlflow.champion_metric_name: RMSE
+        mlflow.experiment_name: TetouanCityPower
+        mlflow.run_name: MultiModelComparison
+        mlflow.tracking_uri: http://localhost:5000
         models.output_dir: models
     outs:
     - path: metrics/metrics.json
       hash: md5
-      md5: 22491221047c3ac510678e616bc9e2f9
-      size: 1212
+      md5: 16b5891423cbcaba01a24f7e5124cbcf
+      size: 1215
     - path: reports/figures
       hash: md5
       md5: a4447bb72c92d193b2b9dc7e0355a9b6.dir

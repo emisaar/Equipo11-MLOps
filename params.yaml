@@ -1,4 +1,4 @@
-data:
+﻿data:
   source: file
   raw_path: data/raw/power_tetouan_city_modified.csv
   interim_loaded: data/interim/loaded.parquet
@@ -86,9 +86,13 @@ evaluation:
 
 # MLflow tracking
 mlflow:
+  mlflow_enabled: true
   tracking_uri: http://localhost:5000
   experiment_name: TetouanCityPower
   run_name: MultiModelComparison
+  # Selección de champion
+  champion_metric_name: RMSE
+  champion_higher_is_better: false
 
 # Reportes y visualizaciones
 reports:

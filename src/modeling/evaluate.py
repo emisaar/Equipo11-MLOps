@@ -4,7 +4,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import pandas as pd
 import numpy as np
 import json
@@ -14,6 +14,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 from src.modeling.train import load_all_models
 from src.visualization.plots import plot_model_comparison
 from src.config import POWER_COLS, N_STEPS_PREDICT
+from src.tracking.mlflow_tracker import MLflowTracker
 
 
 @dataclass
@@ -45,6 +46,11 @@ class ModelEvaluator:
     metrics_output: Path
     figures_output: Path
     n_steps: int = N_STEPS_PREDICT
+    mlflow_enabled: bool = False
+    mlflow_experiment: Optional[str] = None
+    mlflow_tracking_uri: Optional[str] = None
+    champion_metric_name: str = "RMSE"
+    champion_higher_is_better: bool = False
 
     def run(self) -> Path:
         """
@@ -122,6 +128,34 @@ class ModelEvaluator:
         # Guarda métricas
         print(f"\nGuardando métricas en: {self.metrics_output}")
         self._save_metrics(metrics)
+
+        # MLflow tracking
+        if self.mlflow_enabled:
+            try:
+                # Ejecutando Tracking MLflow
+                print(f"\n Ejecutando MLflow Tracking... {self.mlflow_experiment} ")
+                
+                tracker = MLflowTracker(
+                    tracking_uri=self.mlflow_tracking_uri,
+                    experiment_name=self.mlflow_experiment,
+                    enabled=True,
+                    champion_metric_name=self.champion_metric_name,
+                    champion_higher_is_better= self.champion_higher_is_better,
+                )                                
+                tracker.log_evaluation(
+                    models=models,
+                    train_df=train_df,
+                    test_df=test_df,
+                    predictions=predictions,
+                    metrics=metrics,
+                    n_steps=self.n_steps,
+                    models_dir=self.models_dir,
+                    metrics_output=self.metrics_output,
+                    figures_output=self.figures_output,
+                )
+            except Exception:
+                # No interrumpe la evaluación si MLflow falla
+                pass
 
         # Muestra resumen
         self._print_summary(metrics)
