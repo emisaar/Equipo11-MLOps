@@ -12,10 +12,10 @@ from src.modeling.evaluate import ModelEvaluator
 
 
 if __name__ == "__main__":
-    # Carga parÃ¡metros desde params.yaml
+    # Carga parámetros desde params.yaml
     params = yaml.safe_load(open("params.yaml", "r", encoding="utf-8"))
 
-    # Ejecuta evaluaciÃ³n
+    # Ejecuta evaluación
     evaluator = ModelEvaluator(
         train_path=Path(params["data"]["train"]),
         test_path=Path(params["data"]["test"]),

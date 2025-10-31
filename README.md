@@ -7,43 +7,75 @@ Proyecto de predicción de consumo eléctrico en Tetouan City utilizando múltip
 ### Estructura del Proyecto
 ```
 .
-├─ data/
-│  ├─ raw/              # CSV originales (versionados con DVC)
-│  ├─ interim/          # Datos cargados en formato Parquet
-│  └─ processed/        # Datos limpios, preprocesados, train/test splits
+├─ data/                     # Datos del proyecto
+│  ├─ raw/                   # CSV originales (versionados con DVC)
+│  ├─ interim/               # Datos cargados en formato Parquet
+│  ├─ processed/             # Datos limpios, preprocesados, train/test splits
+│  └─ external/              # Datos externos de terceros
 │
-├─ src/                 # Lógica de negocio (importable, testeable)
+├─ src/                      # Lógica de negocio (importable, testeable)
 │  ├─ __init__.py
-│  ├─ config.py         # Configuración centralizada y constantes
-│  ├─ utils.py          # Utilidades de preprocesamiento
-│  ├─ dataset.py        # Clases LoadData y DatasetCleaner
-│  ├─ features.py       # Ingeniería de características (PreprocessData)
-│  ├─ plots.py          # Visualizaciones y análisis exploratorio
-│  └─ modeling/
-│     ├─ models.py      # Implementación de VAR, RF, XGBoost, LSTM
-│     ├─ train.py       # Orquestación de entrenamiento (ModelTrainer)
-│     ├─ evaluate.py    # Evaluación y comparación (ModelEvaluator)
-│     └─ predict.py     # Predicción recursiva para series temporales
+│  ├─ config.py              # Configuración centralizada y constantes
+│  │
+│  ├─ data/                  # Gestión de datos
+│  │  ├─ __init__.py
+│  │  ├─ database.py         # Conexiones y operaciones de base de datos
+│  │  └─ loaders.py          # Cargadores de datos (LoadData)
+│  │
+│  ├─ preprocessing/         # Preprocesamiento de datos
+│  │  ├─ __init__.py
+│  │  ├─ cleaner.py          # Limpieza de datos (DatasetCleaner)
+│  │  ├─ outliers.py         # Detección y tratamiento de outliers
+│  │  ├─ imputation.py       # Imputación de valores faltantes
+│  │  └─ normalization.py    # Normalización y escalado
+│  │
+│  ├─ features/              # Ingeniería de características
+│  │  ├─ __init__.py
+│  │  ├─ engineering.py      # Feature engineering general
+│  │  ├─ preprocessor.py     # PreprocessData principal
+│  │  └─ temporal.py         # Features temporales y lags
+│  │
+│  ├─ modeling/              # Modelos de Machine Learning
+│  │  ├─ __init__.py
+│  │  ├─ models.py           # Implementación de VAR, RF, XGBoost, LSTM
+│  │  ├─ train.py            # Orquestación de entrenamiento (ModelTrainer)
+│  │  ├─ evaluate.py         # Evaluación y comparación (ModelEvaluator)
+│  │  └─ predict.py          # Predicción recursiva para series temporales
+│  │
+│  └─ visualization/         # Visualizaciones
+│     ├─ __init__.py
+│     ├─ eda.py              # Análisis exploratorio de datos
+│     └─ plots.py            # Gráficos y visualizaciones
 │
-├─ pipeline/            # Scripts de orquestación DVC
-│  ├─ load_data.py      # Stage 1: Carga de datos
-│  ├─ clean_data.py     # Stage 2: Limpieza
-│  ├─ preprocess.py     # Stage 3: Preprocesamiento y splits
-│  ├─ train.py          # Stage 4: Entrenamiento de modelos
-│  └─ evaluate.py       # Stage 5: Evaluación y comparación
+├─ pipeline/                 # Scripts de orquestación DVC
+│  ├─ load_data.py           # Stage 1: Carga de datos
+│  ├─ clean_data.py          # Stage 2: Limpieza
+│  ├─ preprocess.py          # Stage 3: Preprocesamiento y splits
+│  ├─ train.py               # Stage 4: Entrenamiento de modelos
+│  └─ evaluate.py            # Stage 5: Evaluación y comparación
 │
-├─ models/              # Modelos entrenados (.pkl)
-├─ metrics/             # Métricas de evaluación (JSON)
-├─ reports/             # Figuras y visualizaciones
-│  ├─ eda/
-│  └─ figures/
-├─ notebooks/           # Análisis individuales y experimentación
-├─ tests/               # Tests unitarios (futuro)
+├─ models/                   # Modelos entrenados (.pkl)
+├─ metrics/                  # Métricas de evaluación (JSON)
+├─ reports/                  # Reportes y visualizaciones
+│  └─ figures/               # Gráficas comparativas por zona
 │
-├─ params.yaml          # Configuración de pipeline y hiperparámetros
-├─ dvc.yaml             # Pipeline DVC (5 stages)
-├─ requirements.txt     # Dependencias del proyecto
-├─ README.md            # Documentación
+├─ notebooks/                # Análisis y experimentación
+│  ├─ Fase1/                 # Notebooks de Fase 1
+│  ├─ Fase2/                 # Notebooks de Fase 2
+│  └─ IndividualAnalysis/    # Análisis individuales del equipo
+│
+├─ docs/                     # Documentación adicional
+│
+├─ params.yaml               # Configuración de pipeline y hiperparámetros
+├─ dvc.yaml                  # Pipeline DVC (5 stages)
+├─ dvc.lock                  # Lock file de DVC
+├─ requirements.txt          # Dependencias del proyecto
+├─ environment.yml           # Entorno Conda (opcional)
+├─ pyproject.toml            # Configuración del proyecto
+├─ setup.cfg                 # Configuración de setup
+├─ Makefile                  # Comandos automatizados
+├─ LICENSE                   # Licencia del proyecto
+├─ README.md                 # Documentación principal
 └─ .gitignore
 ```
 
@@ -54,7 +86,6 @@ Este proyecto entrena y compara 4 tipos de modelos:
 1. **VAR (Vector AutoRegression)**: Modelo estadístico multivariado para capturar interdependencias entre zonas
 2. **Random Forest**: Modelo de ensemble con features temporales y meteorológicas
 3. **XGBoost**: Gradient boosting optimizado con búsqueda de hiperparámetros
-4. **LSTM**: Red neuronal recurrente para patrones temporales complejos
 
 Cada modelo (excepto VAR) se entrena individualmente para cada una de las 3 zonas de consumo.
 
@@ -201,6 +232,9 @@ dvc pull -r localstorage
 También puedes ejecutar scripts individuales sin DVC:
 
 ```bash
+# IMPORTANTE: Instalar el proyecto en modo editable primero
+pip install -e .
+
 # Ejecutar manualmente cada etapa del pipeline
 python pipeline/load_data.py
 python pipeline/clean_data.py
@@ -208,6 +242,8 @@ python pipeline/preprocess.py
 python pipeline/train.py
 python pipeline/evaluate.py
 ```
+
+> **Nota**: El comando `pip install -e .` es necesario porque los scripts en `pipeline/` importan módulos desde `src/` (ej: `from src.data.loaders import LoadData`). La instalación en modo editable registra el paquete en tu entorno Python, permitiendo que estas importaciones absolutas funcionen correctamente. El flag `-e` significa que los cambios en el código se reflejan inmediatamente sin reinstalar.
 
 ## Estructura de Métricas
 
