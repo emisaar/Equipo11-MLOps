@@ -47,7 +47,7 @@ metrics/
 # Data files
 data/interim/
 data/processed/
-data/raw/
+#data/raw/
 
 # DVC caches ignored by DVC
 #.dvc/
