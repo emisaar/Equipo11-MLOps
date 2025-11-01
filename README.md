@@ -213,7 +213,7 @@ Todos los hiperparámetros y configuraciones se gestionan en `params.yaml`:
 
 Para modificar hiperparámetros, edita `params.yaml` y ejecuta `dvc repro` para regenerar resultados.
 
-## Almacenamiento Remoto DVC
+## Almacenamiento Local DVC
 
 ```bash
 # Configurar almacenamiento local
@@ -228,6 +228,29 @@ dvc push -r localstorage
 
 # Descargar desde remoto (en otra máquina)
 dvc pull -r localstorage
+```
+
+## Almacenamiento Remoto DVC
+```bash
+# Configurar almacenamiento Remoto S3
+pip install awscli
+
+aws configure --profile equipo11
+
+# Configurar los siguientes parámetros
+AWS Access Key ID [None]: [AWS_ SECRET_ID]
+AWS Secret Access Key [None]: [AWS_SECRET_KE]
+Default region name [None]: us-east-2
+Default output format [None]: json
+
+# dvc remote add -d s3_storage s3://{bucket_name}/{optional_folder}
+dvc remote add -d team_remote s3://itesm-mna/202502-equipo11
+dvc remote modify team_remote region us-east-2
+dvc remote modify team_remote profile equipo11
+cat .dvc/config
+git add .
+git commit -m "feat: Initializing DVC and setting up the remote storage in S3"
+dvc push
 ```
 
 ## Uso Individual de Scripts
