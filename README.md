@@ -158,6 +158,9 @@ python -m pip install --upgrade pip
 
 # Instalar dependencias
 pip install -r requirements.txt
+
+# En caso de reinstalar librerias
+#pip install --upgrade --force-reinstall -r requirements.txt
 ```
 
 ### 2. Inicializar DVC
