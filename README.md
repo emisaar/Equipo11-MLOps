@@ -296,3 +296,143 @@ Las gráficas comparativas se guardan en `reports/figures/`:
 - `comparison_zone_3_power_consumption.png`
 
 Cada gráfica muestra las predicciones de los 4 modelos vs. valores reales.
+
+## API REST para Predicción
+
+El proyecto incluye una API REST desarrollada con FastAPI para exponer los modelos entrenados.
+
+### Características de la API
+
+- Endpoint POST `/predict` para predicción de consumo eléctrico
+- Validación de entrada con Pydantic y manejo de errores robusto
+- Soporte para modelos: VAR, Random Forest, XGBoost
+- Documentación automática en `/docs` (Swagger UI)
+- Cache de modelos en memoria para mejor rendimiento
+- Health check endpoint en `/health`
+
+### Iniciar el Servidor API
+
+```bash
+# Instalar dependencias de la API
+pip install -r requirements.txt
+
+# Iniciar servidor en modo desarrollo
+uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Verificar estado del servicio
+curl http://localhost:8000/health
+```
+
+### Endpoints Principales
+
+#### POST `/predict` - Realizar Predicción
+
+**Request:**
+```json
+{
+  "zone": 1,
+  "model_type": "RandomForest",
+  "features": {
+    "temperature": 23.5,
+    "humidity": 65.2,
+    "wind_speed": 5.3,
+    "general_diffuse_flows": 120.5,
+    "diffuse_flows": 80.3,
+    "hora": 14,
+    "minuto": 30,
+    "dia_de_semana": 2,
+    "dia_del_ano": 150,
+    "lag_zone_1_power_consumption_1_hora": 25000.0,
+    "lag_zone_1_power_consumption_24_horas": 26500.0,
+    "rolling_mean_zone_1_power_consumption_1_hora": 25200.0,
+    "rolling_mean_zone_1_power_consumption_24_horas": 24800.0
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "zone": 1,
+  "model_type": "RandomForest",
+  "model_path": "models/rf_zone_1_power_consumption.pkl",
+  "prediction": 28668.46,
+  "timestamp": "2025-11-07T11:02:35",
+  "features_used": ["temperature", "humidity", "hora", "minuto", ...]
+}
+```
+
+**Nota sobre Features**: Los modelos esperan features específicas generadas por `create_ml_features`:
+- **Variables meteorológicas**: `temperature`, `humidity`, `wind_speed`, `general_diffuse_flows`, `diffuse_flows`
+- **Features temporales**: `hora`, `minuto`, `dia_de_semana`, `dia_del_ano`
+- **Lags**: `lag_zone_X_power_consumption_1_hora`, `lag_zone_X_power_consumption_24_horas` (donde X es 1, 2 o 3)
+- **Rolling means**: `rolling_mean_zone_X_power_consumption_1_hora`, `rolling_mean_zone_X_power_consumption_24_horas`
+
+#### GET `/health` - Health Check
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "models_available": {
+    "VAR": [0],
+    "RandomForest": [1, 2, 3],
+    "XGBoost": [1, 2, 3]
+  },
+  "timestamp": "2025-01-15T14:30:00"
+}
+```
+
+### Modelos Disponibles en la API
+
+Los modelos se cargan desde el directorio `models/` y están versionados con DVC:
+
+| Tipo de Modelo | Ruta del Artefacto | Versión |
+|----------------|-------------------|---------|
+| VAR | `models/var_model.pkl` | Ver `dvc.lock` |
+| Random Forest Zona 1 | `models/rf_zone_1_power_consumption.pkl` | Ver `dvc.lock` |
+| Random Forest Zona 2 | `models/rf_zone_2_power_consumption.pkl` | Ver `dvc.lock` |
+| Random Forest Zona 3 | `models/rf_zone_3_power_consumption.pkl` | Ver `dvc.lock` |
+| XGBoost Zona 1 | `models/xgb_zone_1_power_consumption.pkl` | Ver `dvc.lock` |
+| XGBoost Zona 2 | `models/xgb_zone_2_power_consumption.pkl` | Ver `dvc.lock` |
+| XGBoost Zona 3 | `models/xgb_zone_3_power_consumption.pkl` | Ver `dvc.lock` |
+
+**Nota**: Las versiones exactas de los modelos se encuentran en el archivo `dvc.lock`, que contiene los hashes MD5 de cada artefacto.
+
+### Ejemplo de Uso con Python
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:8000/predict",
+    json={
+        "zone": 1,
+        "model_type": "RandomForest",
+        "features": {
+            "temperature": 23.5,
+            "humidity": 65.2,
+            "wind_speed": 5.3,
+            "general_diffuse_flows": 120.5,
+            "diffuse_flows": 80.3,
+            "hora": 14,
+            "minuto": 30,
+            "dia_de_semana": 2,
+            "dia_del_ano": 150,
+            "lag_zone_1_power_consumption_1_hora": 25000.0,
+            "lag_zone_1_power_consumption_24_horas": 26500.0,
+            "rolling_mean_zone_1_power_consumption_1_hora": 25200.0,
+            "rolling_mean_zone_1_power_consumption_24_horas": 24800.0
+        }
+    }
+)
+
+result = response.json()
+print(f"Predicción: {result['prediction']:.2f} kW")
+print(f"Modelo usado: {result['model_path']}")
+```
+
+### Documentación Detallada
+
+- **Documentación interactiva**: http://localhost:8000/docs (Swagger UI)
+- **Código fuente de la API**: `api/` (main.py, schemas.py, predictor.py)
