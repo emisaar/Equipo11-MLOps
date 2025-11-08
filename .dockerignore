@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# DVC
+.dvc/cache/
+.dvc/tmp/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Jupyter notebooks
+notebooks/
+*.ipynb
+.ipynb_checkpoints/
+
+# Data and artifacts (no incluir en imagen)
+data/raw/
+data/processed/
+reports/
+metrics/
+examples/
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+*.whl
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local

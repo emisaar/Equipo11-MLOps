@@ -1,0 +1,57 @@
+# ============================================================================
+# Docker Compose para API de Predicción de Consumo Eléctrico - Tetouan City
+# ============================================================================
+
+services:
+  # Servicio API FastAPI
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: power-tetouan-api:latest
+    container_name: power-tetouan-api
+
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+    environment:
+      - PYTHONUNBUFFERED=1
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      # Agregar otras variables de entorno aquí (AWS, logs, etc.)
+      # - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      # - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+
+    # Montar volúmenes para desarrollo
+    # TODO: Comentar después de conectar con S3
+    volumes:
+      # Desarrollo: hot-reload de código
+      - ./api:/app/api:ro
+      - ./src:/app/src:ro
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Networking
+    networks:
+      - tetouan-network
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Networks
+networks:
+  tetouan-network:
+    driver: bridge
