@@ -1,12 +1,16 @@
 # predictor.py
-# Lógica de carga y predicción de modelos
-# ==========================================
+# Lógica de carga y predicción de modelos desde MLFlow Registry
+# ================================================================
 
-from pathlib import Path
-from typing import Dict, Any, List
-import joblib
-import pandas as pd
+import os
 import logging
+from typing import Dict, Any
+from pathlib import Path
+
+import mlflow
+import mlflow.sklearn
+from mlflow.tracking import MlflowClient
+import pandas as pd
 
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
@@ -14,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class ModelNotFoundError(Exception):
-    """Excepción cuando no se encuentra el modelo solicitado."""
+    """Excepción cuando no se encuentra el modelo en MLFlow Registry."""
     pass
 
 
@@ -25,42 +29,49 @@ class InvalidFeaturesError(Exception):
 
 class ModelPredictor:
     """
-    Gestor de carga y predicción de modelos de consumo eléctrico.
+    Gestor de carga y predicción de modelos desde MLFlow Registry.
 
-    Esta clase maneja la carga de modelos desde disco, mantiene un cache
-    de modelos cargados para mejorar el rendimiento, y ejecuta predicciones.
+    Esta clase descarga modelos champion desde MLFlow Registry (almacenados en S3),
+    los cachea en memoria para mejorar el rendimiento, y ejecuta predicciones.
 
     Attributes
     ----------
-    models_dir : Path
-        Directorio donde se almacenan los modelos entrenados
+    mlflow_uri : str
+        URI del servidor MLFlow
+    mlflow_client : MlflowClient
+        Cliente de MLFlow para interactuar con el Registry
     models_cache : Dict[str, Any]
-        Cache de modelos cargados para evitar lecturas repetidas de disco
+        Cache de modelos cargados en memoria
     """
 
-    def __init__(self, models_dir: str = "models"):
+    def __init__(self, models_dir: str = None, mlflow_uri: str = None):
         """
         Inicializa el predictor de modelos.
 
         Parameters
         ----------
-        models_dir : str, default="models"
-            Directorio donde se almacenan los modelos
+        models_dir : str, optional
+            Ignorado. Se mantiene por compatibilidad con código existente.
+        mlflow_uri : str, optional
+            URI del servidor MLFlow. Si no se provee, se obtiene de la variable
+            de entorno MLFLOW_TRACKING_URI (default: http://mlflow:5000)
         """
-        self.models_dir = Path(models_dir)
+        # Configurar MLFlow
+        self.mlflow_uri = mlflow_uri or os.getenv(
+            "MLFLOW_TRACKING_URI",
+            "http://mlflow:5000"
+        )
+        mlflow.set_tracking_uri(self.mlflow_uri)
+        self.mlflow_client = MlflowClient()
         self.models_cache: Dict[str, Any] = {}
 
-        # Verificar que el directorio de modelos existe
-        if not self.models_dir.exists():
-            raise FileNotFoundError(
-                f"El directorio de modelos no existe: {self.models_dir}"
-            )
+        logger.info(f"ModelPredictor inicializado")
+        logger.info(f"MLFlow Server: {self.mlflow_uri}")
+        logger.info(f"Modelos se cargarán desde S3 vía MLFlow Registry")
 
-        logger.info(f"ModelPredictor inicializado con directorio: {self.models_dir}")
-
-    def _get_model_path(self, zone: int, model_type: str) -> Path:
+    def _get_registry_name(self, zone: int, model_type: str) -> str:
         """
-        Construye la ruta al archivo del modelo basándose en zona y tipo.
+        Construye el nombre del modelo en MLFlow Registry.
 
         Parameters
         ----------
@@ -71,21 +82,21 @@ class ModelPredictor:
 
         Returns
         -------
-        Path
-            Ruta al archivo .pkl del modelo
+        str
+            Nombre del modelo en Registry (ej: powerTetouan_RF_zone_1_power_consumption)
 
         Raises
         ------
         ValueError
-            Si la combinación de zona y tipo de modelo es inválida
+            Si el tipo de modelo o zona son inválidos
         """
         # Normalizar el tipo de modelo
         model_type_map = {
-            'VAR': 'var',
-            'RandomForest': 'rf',
-            'RF': 'rf',
-            'XGBoost': 'xgb',
-            'XGB': 'xgb'
+            'VAR': 'VAR',
+            'RandomForest': 'RF',
+            'RF': 'RF',
+            'XGBoost': 'XGB',
+            'XGB': 'XGB'
         }
 
         model_prefix = model_type_map.get(model_type)
@@ -96,18 +107,21 @@ class ModelPredictor:
             )
 
         # VAR es un modelo multivariado (no específico por zona)
-        if model_prefix == 'var':
-            return self.models_dir / "var_model.pkl"
+        if model_prefix == 'VAR':
+            return "powerTetouan_VAR"
 
         # Otros modelos son específicos por zona
         if zone not in [1, 2, 3]:
             raise ValueError(f"Zona debe ser 1, 2 o 3. Recibido: {zone}")
 
-        return self.models_dir / f"{model_prefix}_zone_{zone}_power_consumption.pkl"
+        return f"powerTetouan_{model_prefix}_zone_{zone}_power_consumption"
 
     def load_model(self, zone: int, model_type: str) -> Any:
         """
-        Carga un modelo desde disco o desde el cache.
+        Carga modelo champion desde MLFlow Registry.
+
+        El modelo se descarga desde S3 a través de MLFlow y se cachea en memoria
+        para evitar descargas repetidas.
 
         Parameters
         ----------
@@ -119,55 +133,54 @@ class ModelPredictor:
         Returns
         -------
         Any
-            Instancia del modelo entrenado (VARModel, RandomForestModel, XGBoostModel)
+            Modelo sklearn listo para predicción
 
         Raises
         ------
         ModelNotFoundError
-            Si el archivo del modelo no existe
+            Si el modelo no existe en MLFlow Registry
         """
         # Generar clave única para el cache
         cache_key = f"{model_type}_zone_{zone}"
 
         # Si ya está en cache, retornarlo
         if cache_key in self.models_cache:
-            logger.info(f"Modelo cargado desde cache: {cache_key}")
+            logger.info(f"✓ Modelo cargado desde cache: {cache_key}")
             return self.models_cache[cache_key]
 
-        # Obtener ruta del modelo
-        model_path = self._get_model_path(zone, model_type)
+        # Construir nombre del modelo en Registry
+        model_name = self._get_registry_name(zone, model_type)
 
-        # Verificar que el archivo existe
-        if not model_path.exists():
-            raise ModelNotFoundError(
-                f"No se encontró el modelo en: {model_path}. "
-            )
+        # URI con alias 'champion' para obtener el mejor modelo
+        model_uri = f"models:/{model_name}@champion"
 
-        # Cargar el modelo
         try:
-            logger.info(f"Cargando modelo desde disco: {model_path}")
-            model_obj = joblib.load(model_path)
+            logger.info(f"Descargando desde MLFlow Registry: {model_uri}")
+            sklearn_model = mlflow.sklearn.load_model(model_uri)
 
-            # Validar que es un objeto de modelo válido
-            if not hasattr(model_obj, 'is_trained'):
+            # Validar que es un modelo válido
+            if not hasattr(sklearn_model, 'predict'):
                 raise ValueError(
-                    f"El objeto cargado no es un modelo válido. "
-                    f"Tipo: {type(model_obj)}"
-                )
-
-            if not model_obj.is_trained:
-                raise ValueError(
-                    f"El modelo en {model_path} no ha sido entrenado"
+                    f"El objeto descargado no tiene método 'predict'. "
+                    f"Tipo: {type(sklearn_model)}"
                 )
 
             # Guardar en cache
-            self.models_cache[cache_key] = model_obj
+            self.models_cache[cache_key] = sklearn_model
             logger.info(f"Modelo cargado exitosamente: {cache_key}")
 
-            return model_obj
+            return sklearn_model
+
+        except mlflow.exceptions.MlflowException as e:
+            error_msg = (
+                f"No se encontró el modelo en MLFlow Registry: {model_name}@champion. "
+                f"Asegúrate de que el modelo esté registrado y tenga el alias 'champion'."
+            )
+            logger.error(f"{error_msg}\nDetalle: {str(e)}")
+            raise ModelNotFoundError(error_msg) from e
 
         except Exception as e:
-            logger.error(f"Error al cargar modelo desde {model_path}: {str(e)}")
+            logger.error(f"Error al cargar modelo desde MLFlow: {str(e)}")
             raise ModelNotFoundError(
                 f"Error al cargar el modelo: {str(e)}"
             ) from e
@@ -188,14 +201,14 @@ class ModelPredictor:
         model_type : str
             Tipo de modelo ('VAR', 'RandomForest', 'XGBoost')
         features : Dict[str, float]
-            Diccionario con las features de entrada (ya calculadas, incluidos lags)
+            Diccionario con las features de entrada (incluidos lags)
 
         Returns
         -------
         Dict[str, Any]
             Diccionario con la predicción y metadatos:
             - prediction: valor predicho
-            - model_path: ruta del modelo usado
+            - model_name: nombre del modelo usado
             - features_used: lista de features utilizadas
 
         Raises
@@ -206,33 +219,11 @@ class ModelPredictor:
             Si las features proporcionadas son inválidas
         """
         # Cargar el modelo
-        model_obj = self.load_model(zone, model_type)
-
-        # Extraer el modelo sklearn subyacente según el tipo
-        if hasattr(model_obj, 'rf_model') and model_obj.rf_model is not None:
-            sklearn_model = model_obj.rf_model
-            model_name = "RandomForest"
-        elif hasattr(model_obj, 'xgb_model') and model_obj.xgb_model is not None:
-            sklearn_model = model_obj.xgb_model
-            model_name = "XGBoost"
-        elif hasattr(model_obj, 'model_fit') and model_obj.model_fit is not None:
-            # VAR model - requiere manejo especial
-            raise NotImplementedError(
-                "La predicción directa con VAR aún no está implementada en la API. "
-                "Use Random Forest o XGBoost."
-            )
-        else:
-            raise ValueError(
-                f"No se pudo extraer el modelo subyacente de {type(model_obj)}"
-            )
+        sklearn_model = self.load_model(zone, model_type)
 
         # Preparar DataFrame con las features
         try:
             df = pd.DataFrame([features])
-
-            # Obtener las features esperadas por el modelo sklearn
-            # El modelo es un pipeline, así que usamos todas las features del dict
-            available_features = list(features.keys())
 
             # Verificar que no hay valores nulos
             if df.isnull().any().any():
@@ -245,16 +236,17 @@ class ModelPredictor:
             prediction = sklearn_model.predict(df)[0]
 
             # Preparar respuesta
-            model_path = self._get_model_path(zone, model_type)
+            model_name = self._get_registry_name(zone, model_type)
+            available_features = list(features.keys())
 
             result = {
                 'prediction': float(prediction),
-                'model_path': str(model_path),
+                'model_name': model_name,
                 'features_used': available_features
             }
 
             logger.info(
-                f"Predicción exitosa - Zona: {zone}, Modelo: {model_name}, "
+                f"✓ Predicción exitosa - Zona: {zone}, Modelo: {model_type}, "
                 f"Predicción: {prediction:.2f}"
             )
 
@@ -268,44 +260,49 @@ class ModelPredictor:
             logger.error(f"Error durante la predicción: {str(e)}")
             raise
 
-    def get_available_models(self) -> Dict[str, List[int]]:
+    def get_available_models(self) -> Dict[str, Any]:
         """
-        Obtiene lista de modelos disponibles en el directorio.
+        Obtiene lista de modelos disponibles en MLFlow Registry.
 
         Returns
         -------
-        Dict[str, List[int]]
-            Diccionario con tipos de modelo como claves y listas de zonas
-            disponibles como valores. Por ejemplo:
-            {'VAR': [0], 'RandomForest': [1, 2, 3], 'XGBoost': [1, 2, 3]}
+        Dict[str, Any]
+            Diccionario con modelos disponibles y sus versiones
         """
-        available = {
-            'VAR': [],
-            'RandomForest': [],
-            'XGBoost': []
-        }
+        try:
+            # Buscar modelos registrados que empiecen con 'powerTetouan_'
+            registered_models = self.mlflow_client.search_registered_models(
+                filter_string="name LIKE 'powerTetouan_%'"
+            )
 
-        # Verificar VAR (modelo multivariado)
-        if (self.models_dir / "var_model.pkl").exists():
-            available['VAR'] = [0]  # 0 indica que es multivariado
+            available = {}
+            for rm in registered_models:
+                # Obtener alias 'champion' si existe
+                try:
+                    champion_version = self.mlflow_client.get_model_version_by_alias(
+                        name=rm.name,
+                        alias="champion"
+                    )
+                    available[rm.name] = {
+                        'champion_version': champion_version.version,
+                        'latest_version': rm.latest_versions[0].version if rm.latest_versions else None
+                    }
+                except Exception:
+                    # No tiene alias champion
+                    available[rm.name] = {
+                        'champion_version': None,
+                        'latest_version': rm.latest_versions[0].version if rm.latest_versions else None
+                    }
 
-        # Verificar modelos por zona
-        for zone in [1, 2, 3]:
-            # Random Forest
-            rf_path = self.models_dir / f"rf_zone_{zone}_power_consumption.pkl"
-            if rf_path.exists():
-                available['RandomForest'].append(zone)
+            return available
 
-            # XGBoost
-            xgb_path = self.models_dir / f"xgb_zone_{zone}_power_consumption.pkl"
-            if xgb_path.exists():
-                available['XGBoost'].append(zone)
-
-        return available
+        except Exception as e:
+            logger.error(f"Error al obtener modelos disponibles: {str(e)}")
+            return {}
 
     def clear_cache(self):
         """
         Limpia el cache de modelos cargados.
         """
         self.models_cache.clear()
-        logger.info("Cache de modelos eliminados de cache")
+        logger.info("Cache de modelos limpiado")

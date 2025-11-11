@@ -3,7 +3,47 @@
 # ============================================================================
 
 services:
+  # ============================================================================
+  # MLFlow Tracking Server (SQLite + S3)
+  # ============================================================================
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: mlflow-server
+    ports:
+      - "5001:5000"
+
+    environment:
+      # Credenciales AWS para acceso a S3
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-2}
+
+    volumes:
+      # SQLite database + cache local
+      - ./mlflow_data:/mlflow
+
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:///mlflow/mlflow.db
+      --default-artifact-root s3://itesm-mna/202502-equipo11/mlruns
+      --host 0.0.0.0
+      --port 5000
+
+    restart: unless-stopped
+
+    networks:
+      - tetouan-network
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
   # Servicio API FastAPI
+  # ============================================================================
   api:
     build:
       context: .
@@ -16,18 +56,23 @@ services:
 
     environment:
       - PYTHONUNBUFFERED=1
-      - API_HOST=0.0.0.0
-      - API_PORT=8000
-      # Agregar otras variables de entorno aquí (AWS, logs, etc.)
-      # - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      # - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      # MLFlow configuration (usa IP del contenedor MLFlow en la red bridge)
+      # IMPORTANTE: Esta IP puede cambiar. Para obtenerla ejecuta:
+      #   docker inspect mlflow-server -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
+      - MLFLOW_TRACKING_URI=http://172.18.0.2:5000
+      # AWS credentials para descargar modelos desde S3 vía MLFlow
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-2}
 
-    # Montar volúmenes para desarrollo
-    # TODO: Comentar después de conectar con S3
+    # Montar volúmenes para desarrollo (hot-reload)
     volumes:
-      # Desarrollo: hot-reload de código
       - ./api:/app/api:ro
       - ./src:/app/src:ro
+
+    # Espera a que MLFlow inicie antes de arrancar
+    depends_on:
+      - mlflow
 
     # Health check
     healthcheck:
@@ -37,10 +82,8 @@ services:
       retries: 3
       start_period: 40s
 
-    # Restart policy
     restart: unless-stopped
 
-    # Networking
     networks:
       - tetouan-network
 

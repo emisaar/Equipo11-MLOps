@@ -37,12 +37,19 @@ __pycache__/
 # Temporary files
 tmp/
 
+# Personal files
+scripts/
+
 # Project files
 models/
 reports/
 /models
 local-dvc-storage/
 metrics/
+
+# MLFlow local data (SQLite DB + cache)
+mlflow_data/
+mlruns/
 
 # Data files
 data/interim/

@@ -64,6 +64,7 @@ kombu==5.5.4
 markdown-it-py==4.0.0
 matplotlib==3.10.7
 mdurl==0.1.2
+mlflow==2.19.0
 multidict==6.7.0
 nanotime==0.5.2
 networkx==3.5
