@@ -20,6 +20,7 @@ class _DummyModel:
         return {"learning_rate": 0.1, "complex": [1]}
 
 
+# Confirms tracker aggregates simple params and ignores unsupported attributes.
 def test_extract_model_params_merges_attributes() -> None:
     tracker = MLflowTracker(enabled=False)
     params = tracker._extract_model_params(_DummyModel())
@@ -29,6 +30,7 @@ def test_extract_model_params_merges_attributes() -> None:
     assert "complex" not in params
 
 
+# Verifies artifact export writes CSV with y_true/y_pred for monitoring.
 def test_log_predictions_artifact_creates_csv(tmp_path: Path) -> None:
     tracker = MLflowTracker(enabled=False)
     dates = pd.date_range("2025-01-01 00:00", periods=3, freq="10min")

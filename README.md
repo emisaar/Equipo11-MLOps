@@ -445,6 +445,16 @@ Ejecuta todo con este único comando desde la raíz del proyecto:
 pytest -q
 ```
 
+### Monitor de Data Drift
+
+Para simular condiciones de drift y verificar si el desempeño se degrada, ejecuta el helper de monitoreo. Genera métricas base y con drift, guarda resultados en `reports/drift_monitoring/drift_metrics.json` y crea un gráfico comparativo.
+
+```bash
+python -m src.monitoring.drift
+```
+
+Si el script detecta cambio relativo mayor al 15 % en métricas como RMSE o MAE, recomienda revisar el pipeline de features y reentrenar el modelo.
+
 ### Documentación Detallada
 
 - **Documentación interactiva**: http://localhost:8000/docs (Swagger UI)

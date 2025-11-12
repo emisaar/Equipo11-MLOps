@@ -6,8 +6,8 @@ import pytest
 from src.data.loaders import LoadData
 
 
+# Verifica que LoadData lea un CSV, normalice columnas y escriba Parquet.
 def test_load_data_csv_roundtrip(tmp_path: Path) -> None:
-    """Run LoadData against a small CSV and expect normalized output."""
     csv_path = tmp_path / "raw.csv"
     pd.DataFrame(
         {
@@ -27,6 +27,7 @@ def test_load_data_csv_roundtrip(tmp_path: Path) -> None:
     assert df["zone_1_power_consumption"].iloc[0] == 1000
 
 
+# Comprueba que la inspección de cabeceras detecte columnas presentes y ausentes.
 def test_csv_has_column_detects_headers(tmp_path: Path) -> None:
     csv_path = tmp_path / "data.csv"
     pd.DataFrame({"datetime": [0], "value": [1]}).to_csv(csv_path, index=False)
@@ -35,6 +36,7 @@ def test_csv_has_column_detects_headers(tmp_path: Path) -> None:
     assert loader._csv_has_column(csv_path, "missing") is False
 
 
+# Confirma que extensiones no soportadas lanzan ValueError.
 def test_load_data_unsupported_extension(tmp_path: Path) -> None:
     txt_path = tmp_path / "bad.txt"
     txt_path.write_text("unsupported")

@@ -5,6 +5,7 @@ from pathlib import Path
 from src.modeling.evaluate import ModelEvaluator
 
 
+# Fábrica auxiliar para instanciar ModelEvaluator con rutas temporales.
 def _make_evaluator(tmp_path: Path) -> ModelEvaluator:
     return ModelEvaluator(
         train_path=tmp_path / "train.parquet",
@@ -15,6 +16,7 @@ def _make_evaluator(tmp_path: Path) -> ModelEvaluator:
     )
 
 
+# Verifica métricas contra cálculos manuales de RMSE/MAE.
 def test_compute_metrics_matches_known_values(tmp_path: Path) -> None:
     evaluator = _make_evaluator(tmp_path)
     y_true = np.array([1.0, 2.0, 3.0])
@@ -26,6 +28,7 @@ def test_compute_metrics_matches_known_values(tmp_path: Path) -> None:
     assert metrics["MAPE"] > 0
 
 
+# Asegura que MAPE sea NaN cuando los valores reales son cero para evitar divisiones por cero.
 def test_compute_metrics_handles_zero_truth(tmp_path: Path) -> None:
     evaluator = _make_evaluator(tmp_path)
     y_true = np.array([0.0, 0.0])

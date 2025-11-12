@@ -18,6 +18,7 @@ class _DummyModel:
         return np.full(len(X), self.value)
 
 
+# Verifica que predict_model use el DataFrame dado y retorne un arreglo numpy.
 def test_predict_model_reads_dataframe_and_returns_array(tmp_path: Path) -> None:
     model_bundle = {"model": _DummyModel(value=2.5), "features": ["a", "b"]}
     model_path = tmp_path / "model.pkl"
@@ -30,6 +31,7 @@ def test_predict_model_reads_dataframe_and_returns_array(tmp_path: Path) -> None
     assert result.tolist() == [2.5, 2.5]
 
 
+# Garantiza que predict_with_features pueda regresar DataFrame con predicciones.
 def test_predict_with_features_returns_dataframe(tmp_path: Path) -> None:
     model_bundle = {"model": _DummyModel(value=1.0), "features": ["a"]}
     model_path = tmp_path / "model.pkl"

@@ -27,6 +27,7 @@ def _build_sample_dataframe(records: int = 150) -> pd.DataFrame:
     )
 
 
+# Esta integración de extremo a extremo valida limpieza, entrenamiento y métricas.
 def test_end_to_end_pipeline_generates_predictions_and_metrics(tmp_path: Path) -> None:
     raw_csv = tmp_path / "raw" / "power_series.csv"
     raw_csv.parent.mkdir(parents=True, exist_ok=True)

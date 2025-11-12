@@ -4,6 +4,7 @@ from src.features.engineering import create_ml_features
 from src.config import PASOS_POR_HORA, PASOS_POR_DIA
 
 
+# Verifica que el generador de features cree rezagos y medias móviles según la configuración.
 def test_create_ml_features_adds_expected_lags_and_rollings() -> None:
     dates = pd.date_range("2024-01-01", periods=200, freq="10min")
     df = pd.DataFrame(
