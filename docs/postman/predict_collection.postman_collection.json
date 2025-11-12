@@ -1,0 +1,63 @@
+{
+  "info": {
+    "name": "Tetouan Power Consumption API",
+    "description": "Collection focused on the POST `/predict` endpoint described in `README.md`. Adjust the host/port variables before sending requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "api_host",
+      "value": "localhost",
+      "description": "Host where the prediction API is running"
+    },
+    {
+      "key": "api_port",
+      "value": "8000",
+      "description": "Port that `uvicorn` binds to in development mode"
+    }
+  ],
+  "item": [
+    {
+      "name": "POST /predict",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\",\n  \"features\": {\n    \"temperature\": 23.5,\n    \"humidity\": 65.2,\n    \"wind_speed\": 5.3,\n    \"general_diffuse_flows\": 120.5,\n    \"diffuse_flows\": 80.3,\n    \"hora\": 14,\n    \"minuto\": 30,\n    \"dia_de_semana\": 2,\n    \"dia_del_ano\": 150,\n    \"lag_zone_1_power_consumption_1_hora\": 25000.0,\n    \"lag_zone_1_power_consumption_24_horas\": 26500.0,\n    \"rolling_mean_zone_1_power_consumption_1_hora\": 25200.0,\n    \"rolling_mean_zone_1_power_consumption_24_horas\": 24800.0\n  }\n}"
+        },
+        "url": {
+          "raw": "http://{{api_host}}:{{api_port}}/predict",
+          "protocol": "http",
+          "host": [
+            "{{api_host}}"
+          ],
+          "port": "{{api_port}}",
+          "path": [
+            "predict"
+          ]
+        },
+        "description": "Invoke the prediction service with a representative feature set. Update `features` or `zone/model_type` to explore other models."
+      },
+      "response": [
+        {
+          "name": "Example prediction response",
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\",\n  \"model_path\": \"models/rf_zone_1_power_consumption.pkl\",\n  \"prediction\": 28668.46,\n  \"timestamp\": \"2025-11-07T11:02:35\",\n  \"features_used\": [\n    \"temperature\",\n    \"humidity\",\n    \"hora\",\n    \"minuto\",\n    \"lag_zone_1_power_consumption_1_hora\",\n    \"lag_zone_1_power_consumption_24_horas\"\n  ]\n}"
+        }
+      ]
+    }
+  ]
+}

@@ -432,6 +432,19 @@ print(f"Predicción: {result['prediction']:.2f} kW")
 print(f"Modelo usado: {result['model_path']}")
 ```
 
+### Pruebas automatizadas
+
+Las pruebas nuevas viven en `tests/` y aseguran tanto utilidades de preprocesamiento como el recorrido completo.
+
+- `tests/test_preprocessing.py` cubre normalización de nombres, medias móviles y reemplazo/eliminación de outliers.
+- `tests/test_integration_pipeline.py` monta un CSV ficticio, lo pasa por `LoadData` → `DatasetCleaner`, entrena un modelo básico y calcula métricas vía `ModelEvaluator._compute_metrics`.
+
+Ejecuta todo con este único comando desde la raíz del proyecto:
+
+```bash
+pytest -q
+```
+
 ### Documentación Detallada
 
 - **Documentación interactiva**: http://localhost:8000/docs (Swagger UI)
