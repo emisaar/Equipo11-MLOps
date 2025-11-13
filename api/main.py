@@ -152,7 +152,12 @@ async def health_check():
         Si hay un error al verificar el estado
     """
     try:
-        models_available = predictor.get_available_models()
+        # Intentar obtener modelos disponibles
+        try:
+            models_available = predictor.get_available_models()
+        except Exception as e:
+            logger.warning(f"No se pudo listar modelos: {e}")
+            models_available = {}
 
         return HealthResponse(
             status="healthy",
@@ -251,7 +256,7 @@ async def predict(request: PredictionRequest):
         response = PredictionResponse(
             zone=request.zone,
             model_type=request.model_type,
-            model_path=result['model_path'],
+            model_path=result.get('model_name', 'unknown'),  # Usar model_name de MLFlow
             prediction=result['prediction'],
             features_used=result['features_used']
         )
