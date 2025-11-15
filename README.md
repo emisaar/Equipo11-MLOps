@@ -432,6 +432,51 @@ print(f"Predicción: {result['prediction']:.2f} kW")
 print(f"Modelo usado: {result['model_path']}")
 ```
 
+### Despliegue con Docker
+
+El proyecto incluye soporte para Docker, facilitando el despliegue y la portabilidad del servicio.
+
+#### Opción 1: Docker Build y Run (Solo API)
+
+```bash
+# Construir la imagen Docker
+docker build -t ml-service:latest .
+
+# Ejecutar el contenedor
+docker run -p 8000:8000 ml-service:latest
+
+# Verificar que el servicio está funcionando
+curl http://localhost:8000/health
+```
+
+#### Opción 2: Docker Compose (API + MLFlow)
+
+Esta opción levanta tanto la API como el servidor MLFlow para tracking de experimentos.
+
+```bash
+# Configurar variables de entorno (crear archivo .env)
+cat > .env << EOF
+AWS_ACCESS_KEY_ID=tu_access_key
+AWS_SECRET_ACCESS_KEY=tu_secret_key
+AWS_DEFAULT_REGION=us-east-2
+API_PORT=8000
+EOF
+
+# Levantar todos los servicios
+docker compose up -d
+
+# Ver logs
+docker compose logs -f
+
+# Detener servicios
+docker compose down
+```
+
+**Servicios disponibles:**
+- API FastAPI: http://localhost:8000
+- MLFlow UI: http://localhost:5001
+- Documentación API: http://localhost:8000/docs
+
 ### Pruebas automatizadas
 
 Las pruebas nuevas viven en `tests/` y aseguran tanto utilidades de preprocesamiento como el recorrido completo.

@@ -121,7 +121,6 @@ typing_extensions==4.15.0
 tzdata==2025.2
 urllib3==2.5.0
 uvicorn==0.34.0
-uvloop==0.22.1
 vine==5.1.0
 voluptuous==0.15.2
 watchfiles==1.1.1
