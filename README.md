@@ -42,6 +42,12 @@ Proyecto de predicción de consumo eléctrico en Tetouan City utilizando múltip
 │  │  ├─ evaluate.py         # Evaluación y comparación (ModelEvaluator)
 │  │  └─ predict.py          # Predicción recursiva para series temporales
 │  │
+│  ├─ monitoring/            # Sistema de monitoreo de drift
+│  │  ├─ __init__.py
+│  │  ├─ drift_detectors.py  # Detectores de drift (Statistical, TimeSeries, Performance)
+│  │  ├─ alert_system.py     # Sistema de alertas multi-canal
+│  │  └─ drift_pipeline.py   # Pipeline de orquestación
+│  │
 │  └─ visualization/         # Visualizaciones
 │     ├─ __init__.py
 │     ├─ eda.py              # Análisis exploratorio de datos
@@ -64,8 +70,34 @@ Proyecto de predicción de consumo eléctrico en Tetouan City utilizando múltip
 │  ├─ Fase2/                 # Notebooks de Fase 2
 │  └─ IndividualAnalysis/    # Análisis individuales del equipo
 │
-├─ docs/                     # Documentación adicional
+├─ api/                      # API REST con FastAPI
+│  ├─ main.py                # Aplicación principal con endpoints
+│  ├─ schemas.py             # Modelos Pydantic para validación
+│  ├─ predictor.py           # Lógica de predicción
+│  └─ drift_monitor.py       # Monitoreo de drift en tiempo real
 │
+├─ docs/                     # Documentación adicional
+│  ├─ DOCKER_DEPLOYMENT.md   # Guía completa de despliegue Docker
+│  ├─ DOCKER_QUICKSTART.md   # Referencia rápida de Docker
+│  ├─ DRIFT_MONITORING.md    # Sistema de monitoreo de drift
+│  └─ RESUMEN_IMPLEMENTACION.md  # Resumen ejecutivo de implementación
+│
+├─ scripts/                  # Scripts de automatización
+│  ├─ docker-build.sh        # Build de imagen Docker con versionado
+│  ├─ docker-run.sh          # Ejecución de contenedor
+│  └─ docker-push.sh         # Publicación a DockerHub
+│
+├─ tests/                    # Tests automatizados
+│  ├─ test_monitoring.py     # Tests del sistema de drift (20 tests)
+│  ├─ test_preprocessing.py  # Tests de preprocesamiento
+│  └─ test_integration_pipeline.py  # Tests de integración
+│
+├─ examples/                 # Ejemplos de uso
+│  └─ drift_monitoring_demo.py  # Demo del sistema de drift
+│
+├─ Dockerfile                # Configuración Docker multi-stage
+├─ docker-compose.yml        # Orquestación de servicios (API + MLFlow)
+├─ .dockerignore             # Exclusiones para build de Docker
 ├─ params.yaml               # Configuración de pipeline y hiperparámetros
 ├─ dvc.yaml                  # Pipeline DVC (5 stages)
 ├─ dvc.lock                  # Lock file de DVC
@@ -309,6 +341,10 @@ El proyecto incluye una API REST desarrollada con FastAPI para exponer los model
 - Documentación automática en `/docs` (Swagger UI)
 - Cache de modelos en memoria para mejor rendimiento
 - Health check endpoint en `/health`
+- **Sistema de monitoreo de drift en tiempo real** (NUEVO)
+  - Detección automática de drift estadístico, temporal y de performance
+  - Alertas configurables por severidad
+  - Endpoints para consulta de estado y chequeo manual
 
 ### Iniciar el Servidor API
 
@@ -481,26 +517,278 @@ docker compose down
 
 Las pruebas nuevas viven en `tests/` y aseguran tanto utilidades de preprocesamiento como el recorrido completo.
 
-- `tests/test_preprocessing.py` cubre normalización de nombres, medias móviles y reemplazo/eliminación de outliers.
-- `tests/test_integration_pipeline.py` monta un CSV ficticio, lo pasa por `LoadData` → `DatasetCleaner`, entrena un modelo básico y calcula métricas vía `ModelEvaluator._compute_metrics`.
+**Tests disponibles:**
+- `tests/test_preprocessing.py` - Normalización de nombres, medias móviles, outliers
+- `tests/test_integration_pipeline.py` - Pipeline completo de LoadData a evaluación
+- `tests/test_monitoring.py` - Sistema de drift monitoring (20 tests)
 
-Ejecuta todo con este único comando desde la raíz del proyecto:
+Ejecuta todos los tests:
 
 ```bash
 pytest -q
 ```
 
-### Monitor de Data Drift
-
-Para simular condiciones de drift y verificar si el desempeño se degrada, ejecuta el helper de monitoreo. Genera métricas base y con drift, guarda resultados en `reports/drift_monitoring/drift_metrics.json` y crea un gráfico comparativo.
+O tests específicos:
 
 ```bash
-python -m src.monitoring.drift
+# Tests de monitoreo de drift
+pytest tests/test_monitoring.py -v
+
+# Tests de preprocesamiento
+pytest tests/test_preprocessing.py -v
 ```
 
-Si el script detecta cambio relativo mayor al 15 % en métricas como RMSE o MAE, recomienda revisar el pipeline de features y reentrenar el modelo.
+## Sistema de Monitoreo de Drift
+
+El proyecto incluye un sistema completo de detección de drift diseñado específicamente para series temporales.
+
+### Características del Sistema
+
+**Detección Multi-Nivel:**
+- **Statistical Drift**: KS test, PSI (Population Stability Index), JS Divergence
+- **Temporal Drift**: ACF (Autocorrelation Function), ADF test, Seasonal Decomposition
+- **Performance Drift**: Sliding windows para monitorear RMSE, MAE, MAPE
+
+**Arquitectura OOP:**
+- Clases especializadas: `StatisticalDriftDetector`, `TimeSeriesDriftDetector`, `ModelPerformanceMonitor`
+- Sistema de alertas multi-canal: consola, archivo, email (configurable)
+- Pipeline de orquestación para ejecución automatizada
+
+**Configuración para Tetouan:**
+- Seasonal period: 144 (datos en intervalos de 10 minutos, 144 por día)
+- Monitoring window: 24 horas
+- Check interval: 6 horas (configurable)
+
+### Uso del Sistema de Drift
+
+#### Monitoreo Batch (Offline)
+
+```bash
+# Ejecutar análisis de drift entre datasets
+python examples/drift_monitoring_demo.py
+```
+
+El script genera:
+- Reportes JSON en `reports/drift_monitoring/`
+- Alertas en consola con niveles de severidad
+- Recomendaciones automatizadas
+
+#### Monitoreo en Tiempo Real (API)
+
+```bash
+# Obtener estado del monitoreo
+curl "http://localhost:8000/monitoring/drift/status?zone=1&model_type=RandomForest"
+
+# Registrar valor real observado
+curl -X POST http://localhost:8000/monitoring/actual \
+  -H "Content-Type: application/json" \
+  -d '{
+    "zone": 1,
+    "actual_value": 28500.0,
+    "timestamp": "2025-01-15T14:30:00"
+  }'
+
+# Ejecutar chequeo manual de drift
+curl -X POST "http://localhost:8000/monitoring/drift/check?zone=1&model_type=RandomForest"
+```
+
+**Response Example:**
+```json
+{
+  "zone": 1,
+  "model_type": "RandomForest",
+  "needs_drift_check": false,
+  "predictions_logged": 150,
+  "actuals_logged": 145,
+  "last_check_time": "2025-01-15T12:00:00",
+  "next_check_in_hours": 4.5,
+  "latest_report_summary": {
+    "total_alerts": 2,
+    "critical_alerts": 0,
+    "high_alerts": 1,
+    "drift_detected": true
+  }
+}
+```
+
+### Tipos de Drift Detectados
+
+1. **Feature Drift**: Cambios en distribuciones de variables de entrada
+2. **Label Drift**: Cambios en distribución del target
+3. **Concept Drift**: Cambios en la relación X → Y
+4. **Performance Drift**: Degradación de métricas del modelo
+5. **Temporal Drift**: Cambios en patrones estacionales o autocorrelación
+
+### Tests del Sistema
+
+```bash
+# Ejecutar tests de monitoreo
+pytest tests/test_monitoring.py -v
+
+# Resultado esperado: 20 tests passing
+```
+
+## Despliegue con Docker
+
+El proyecto está completamente containerizado para despliegues reproducibles.
+
+### Comandos Rápidos
+
+```bash
+# 1. Build de la imagen
+docker build -t ml-service:latest .
+
+# 2. Ejecutar contenedor
+docker run -p 8000:8000 ml-service:latest
+
+# 3. O usar Docker Compose (recomendado)
+docker-compose up -d
+```
+
+### Características de la Imagen Docker
+
+**Multi-Stage Build:**
+- Stage 1 (Builder): Compilación de dependencias científicas (~1.5 GB, descartado)
+- Stage 2 (Runtime): Imagen final optimizada (~600-800 MB)
+
+**Contenido:**
+- Python 3.11-slim
+- FastAPI + Uvicorn
+- Modelos ML (VAR, RandomForest, XGBoost)
+- Sistema completo de monitoreo de drift
+- Integración con MLFlow
+- Soporte AWS S3
+
+**Seguridad:**
+- Usuario no-root (apiuser:1000)
+- Sin credenciales hardcodeadas
+- Health checks automáticos cada 30s
+- Variables de entorno para secrets
+
+**Volúmenes Persistentes:**
+- `prediction_logs`: Historial de predicciones para drift monitoring
+- `drift_reports`: Reportes de drift generados
+- `model_cache`: Cache de modelos descargados
+- `mlflow_data`: Base de datos MLFlow
+
+### Docker Compose
+
+Ejecuta API + MLFlow simultáneamente:
+
+```bash
+# Configurar variables de entorno
+cp .env.example .env
+# Editar .env con tus credenciales AWS
+
+# Iniciar servicios
+docker-compose up -d
+
+# Verificar estado
+docker-compose ps
+
+# Ver logs
+docker-compose logs -f api
+
+# Detener servicios
+docker-compose down
+```
+
+**Servicios disponibles:**
+- API: http://localhost:8000
+- MLFlow UI: http://localhost:5001
+- Swagger UI: http://localhost:8000/docs
+
+### Scripts de Deployment
+
+```bash
+# Build con versionado semántico (2.0.0, latest, git-commit)
+./scripts/docker-build.sh
+
+# Ejecutar con configuración completa
+./scripts/docker-run.sh
+
+# Publicar a DockerHub
+docker login
+./scripts/docker-push.sh
+```
+
+### Tags Versionados (DockerHub)
+
+La imagen se publica con 3 tags para trazabilidad:
+
+1. **Versión específica**: `equipo11/power-tetouan-api:2.0.0` (producción)
+2. **Latest**: `equipo11/power-tetouan-api:latest` (última estable)
+3. **Git commit**: `equipo11/power-tetouan-api:<hash>` (trazabilidad completa)
+
+### Variables de Entorno
+
+```bash
+# AWS Credentials (para acceso a modelos en S3)
+AWS_ACCESS_KEY_ID=<tu-access-key>
+AWS_SECRET_ACCESS_KEY=<tu-secret-key>
+AWS_DEFAULT_REGION=us-east-2
+
+# MLFlow Configuration
+MLFLOW_TRACKING_URI=http://mlflow:5000
+
+# Drift Monitoring Configuration (opcional)
+DRIFT_CHECK_INTERVAL_HOURS=6
+DRIFT_MONITORING_WINDOW_HOURS=24
+DRIFT_PERFORMANCE_THRESHOLD=0.15
+```
+
+### Verificación Post-Despliegue
+
+```bash
+# 1. Health check
+curl http://localhost:8000/health
+
+# 2. Verificar modelos disponibles
+curl http://localhost:8000/health | jq .models_available
+
+# 3. Predicción de prueba
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "zone": 1,
+    "model_type": "RandomForest",
+    "features": {"temperature": 23.5, "humidity": 65.2, ...}
+  }'
+
+# 4. Estado del drift monitoring
+curl "http://localhost:8000/monitoring/drift/status?zone=1&model_type=RandomForest"
+```
+
+## Endpoints de la API
+
+### API Principal
+
+- **POST** `/predict` - Realizar predicción de consumo eléctrico
+- **GET** `/health` - Health check y modelos disponibles
+
+### Drift Monitoring (Nuevos)
+
+- **GET** `/monitoring/drift/status` - Estado actual del monitoreo de drift
+  - Query params: `zone` (int), `model_type` (str)
+- **POST** `/monitoring/actual` - Registrar valor real observado
+  - Body: `{"zone": int, "actual_value": float, "timestamp": str}`
+- **POST** `/monitoring/drift/check` - Ejecutar chequeo manual de drift
+  - Query params: `zone` (int), `model_type` (str)
+
+### MLFlow
+
+- **MLFlow UI**: http://localhost:5001 - Tracking de experimentos y modelos
 
 ### Documentación Detallada
 
-- **Documentación interactiva**: http://localhost:8000/docs (Swagger UI)
-- **Código fuente de la API**: `api/` (main.py, schemas.py, predictor.py)
+**Documentación de la API:**
+- **Swagger UI**: http://localhost:8000/docs
+- **Código fuente**: `api/` (main.py, schemas.py, predictor.py, drift_monitor.py)
+
+**Documentación de Docker:**
+- **Guía completa**: [docs/DOCKER_DEPLOYMENT.md](docs/DOCKER_DEPLOYMENT.md)
+- **Quick start**: [docs/DOCKER_QUICKSTART.md](docs/DOCKER_QUICKSTART.md)
+
+**Documentación de Drift Monitoring:**
+- **Sistema completo**: [docs/DRIFT_MONITORING.md](docs/DRIFT_MONITORING.md)
+- **Resumen de implementación**: [docs/RESUMEN_IMPLEMENTACION.md](docs/RESUMEN_IMPLEMENTACION.md)

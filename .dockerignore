@@ -1,39 +1,53 @@
+# ============================================================================
+# .dockerignore - Optimiza el contexto de build de Docker
+# ============================================================================
+
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+*.pyc
 
 # Virtual environments
 .venv/
 venv/
 env/
 ENV/
+.virtualenv/
 
-# IDEs
+# IDEs y editores
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.vs/
+.code-workspace
 
 # Git
 .git/
 .gitignore
 .gitattributes
+.github/
 
-# DVC
+# DVC (Data Version Control)
 .dvc/cache/
 .dvc/tmp/
+.dvc/plots/
 
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
 *.cover
+.hypothesis/
+.tox/
+coverage.xml
+*.coveragerc
 
-# Documentation
+# Documentation (incluir solo README principal)
 docs/
 *.md
 !README.md
@@ -43,27 +57,73 @@ notebooks/
 *.ipynb
 .ipynb_checkpoints/
 
-# Data and artifacts (no incluir en imagen)
+# Data y artifacts (NO incluir en imagen - se obtienen de S3/MLFlow)
 data/raw/
+data/interim/
 data/processed/
+data/external/
 reports/
 metrics/
 examples/
+mlflow_data/
+mlruns/
+
+# Pipeline artifacts
+pipeline/
+.dvc/
 
 # Build artifacts
 *.egg-info/
 dist/
 build/
 *.whl
+*.tar.gz
 
-# OS
+# OS specific
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Logs
+# Logs (se crean en runtime)
 *.log
 logs/
+*.out
 
-# Environment files
+# Environment files (usar variables de entorno en runtime)
 .env
 .env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+
+# Docker
+Dockerfile*
+!Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+Jenkinsfile
+
+# Modelos entrenados (se descargan de MLFlow/S3 en runtime)
+models/*.pkl
+models/*.h5
+models/*.joblib
+!models/.gitkeep
+
+# Cache
+.cache/
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/

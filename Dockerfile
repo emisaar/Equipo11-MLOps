@@ -1,52 +1,99 @@
 # ============================================================================
 # Dockerfile para API de Predicción de Consumo Eléctrico - Tetouan City
+# Incluye sistema de monitoreo de data drift
 # ============================================================================
-FROM python:3.12-slim AS builder
+
+# ============================================================================
+# Etapa 1: Builder - Compilación de dependencias
+# ============================================================================
+FROM python:3.11-slim AS builder
+
+LABEL maintainer="Equipo11 MLOps <equipo11@tec.mx>"
+LABEL description="API FastAPI para predicción de consumo eléctrico con monitoreo de drift"
+LABEL version="2.0.0"
 
 WORKDIR /build
 
-# Instalar dependencias de compilación
+# Instalar dependencias de compilación necesarias para paquetes científicos
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc g++ libgomp1 && rm -rf /var/lib/apt/lists/*
+    gcc \
+    g++ \
+    libgomp1 \
+    make \
+    gfortran \
+    libopenblas-dev \
+    liblapack-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Instalar dependencias Python globalmente
-COPY pyproject.toml requirements.txt ./
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Copiar archivos de dependencias
+COPY pyproject.toml requirements-api.txt ./
+
+# Actualizar pip y instalar dependencias
+# Usar requirements-api.txt para builds optimizados (solo dependencias de producción)
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements-api.txt
 
 # ============================================================================
-# Runtime
+# Etapa 2: Runtime - Imagen final optimizada
 # ============================================================================
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgomp1 curl && rm -rf /var/lib/apt/lists/*
+# Metadata
+LABEL maintainer="Equipo11 MLOps <team@example.com>"
+LABEL description="API FastAPI para predicción de consumo eléctrico con monitoreo de drift"
+LABEL version="2.0.0"
 
-# Copiar dependencias instaladas
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+# Instalar dependencias de runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgomp1 \
+    libopenblas0 \
+    liblapack3 \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar dependencias Python instaladas desde builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copiar proyecto (Modelos se descargan desde MLFlow/S3)
-COPY pyproject.toml requirements.txt ./
+# Copiar código fuente del proyecto
+COPY pyproject.toml requirements-api.txt ./
 COPY api ./api
 COPY src ./src
 
-# Instalar proyecto
-RUN pip install --no-cache-dir .
+# Crear directorios necesarios para monitoreo de drift
+RUN mkdir -p \
+    /app/logs/predictions \
+    /app/reports/drift_monitoring \
+    /app/reports/realtime_drift_monitoring \
+    /app/models \
+    && chmod -R 755 /app/logs /app/reports /app/models
 
-# Usuario no-root
-RUN useradd -m -u 1000 apiuser && chown -R apiuser:apiuser /app
+# Instalar proyecto en modo editable ANTES de cambiar al usuario no-root
+RUN pip install --no-cache-dir -e .
+
+# Crear usuario no-root para seguridad
+RUN useradd -m -u 1000 -s /bin/bash apiuser && \
+    chown -R apiuser:apiuser /app
+
+# Cambiar a usuario no-root
 USER apiuser
 
+# Exponer puerto de la API
 EXPOSE 8000
 
+# Variables de entorno
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app \
+    API_PORT=8000 \
+    LOG_LEVEL=info
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
+# Health check mejorado
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Comando por defecto - FastAPI con Uvicorn
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]

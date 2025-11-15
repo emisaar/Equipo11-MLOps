@@ -1,0 +1,59 @@
+# ============================================================================
+# Dependencias mínimas para API en producción (Docker)
+# ============================================================================
+# Este archivo contiene solo las dependencias necesarias para ejecutar la API
+# en el contenedor Docker, excluyendo herramientas de desarrollo.
+# ============================================================================
+
+# Core API Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.5
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+python-multipart==0.0.20
+
+# MLFlow and Model Management
+mlflow==2.19.0
+cloudpickle==3.1.0
+
+# AWS SDK for S3 integration
+boto3==1.35.95
+botocore==1.35.95
+
+# Data Processing and ML Core
+numpy==2.2.2
+pandas==2.2.3
+scikit-learn==1.6.1
+seaborn==0.13.2
+
+# PyArrow - Fixed version compatible with MLFlow 2.19.0
+# MLFlow 2.19.0 requires pyarrow<19,>=4.0.0
+pyarrow>=4.0.0,<19
+
+# Time Series Analysis for Drift Detection
+statsmodels==0.14.4
+
+# Statistical Analysis
+scipy==1.15.1
+
+# HTTP Client
+requests==2.32.3
+
+# Timezone Support
+pytz==2025.1
+
+# JSON Schema
+jsonschema==4.23.0
+
+# Database Drivers (for MLFlow)
+sqlalchemy==2.0.36
+alembic==1.14.0
+
+# Logging and Monitoring
+prometheus-client==0.21.1
+
+# Utilities
+click==8.1.8
+packaging==24.2
+platformdirs==4.3.6

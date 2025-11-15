@@ -1,6 +1,9 @@
 # ============================================================================
 # Docker Compose para API de Predicción de Consumo Eléctrico - Tetouan City
+# Versión 2.0 - Incluye sistema de monitoreo de data drift
 # ============================================================================
+
+version: '3.8'
 
 services:
   # ============================================================================
@@ -10,7 +13,7 @@ services:
     image: ghcr.io/mlflow/mlflow:latest
     container_name: mlflow-server
     ports:
-      - "5001:5000"
+      - "${MLFLOW_PORT:-5001}:5000"
 
     environment:
       # Credenciales AWS para acceso a S3
@@ -18,9 +21,12 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-2}
 
+      # Allow access from Docker network (disable strict host checking)
+      - MLFLOW_ALLOWED_HOSTS=*
+
     volumes:
       # SQLite database + cache local
-      - ./mlflow_data:/mlflow
+      - mlflow_data:/mlflow
 
     command: >
       mlflow server
@@ -28,6 +34,7 @@ services:
       --default-artifact-root s3://itesm-mna/202502-equipo11/mlruns
       --host 0.0.0.0
       --port 5000
+      --gunicorn-opts "--timeout 120"
 
     restart: unless-stopped
 
@@ -41,14 +48,24 @@ services:
         max-size: "10m"
         max-file: "3"
 
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   # ============================================================================
-  # Servicio API FastAPI
+  # Servicio API FastAPI con Monitoreo de Drift
   # ============================================================================
   api:
     build:
       context: .
       dockerfile: Dockerfile
-    image: power-tetouan-api:latest
+      args:
+        - BUILD_DATE=${BUILD_DATE:-2025-01-15}
+        - VERSION=${VERSION:-2.0.0}
+    image: ${DOCKER_REGISTRY:-equipo11}/power-tetouan-api:${VERSION:-latest}
     container_name: power-tetouan-api
 
     ports:
@@ -56,27 +73,44 @@ services:
 
     environment:
       - PYTHONUNBUFFERED=1
-      # MLFlow configuration (usa IP del contenedor MLFlow en la red bridge)
-      # IMPORTANTE: Esta IP puede cambiar. Para obtenerla ejecuta:
-      #   docker inspect mlflow-server -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
-      - MLFLOW_TRACKING_URI=http://172.18.0.2:5000
+      - PYTHONDONTWRITEBYTECODE=1
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+
+      # MLFlow configuration
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+
       # AWS credentials para descargar modelos desde S3 vía MLFlow
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-2}
 
-    # Montar volúmenes para desarrollo (hot-reload)
+      # Configuración de monitoreo de drift
+      - DRIFT_CHECK_INTERVAL_HOURS=${DRIFT_CHECK_INTERVAL_HOURS:-6}
+      - DRIFT_MONITORING_WINDOW_HOURS=${DRIFT_MONITORING_WINDOW_HOURS:-24}
+      - DRIFT_PERFORMANCE_THRESHOLD=${DRIFT_PERFORMANCE_THRESHOLD:-0.15}
+
+    # Volúmenes para persistencia de datos de monitoreo
     volumes:
-      - ./api:/app/api:ro
-      - ./src:/app/src:ro
+      # Logs de predicciones para monitoreo de drift
+      - prediction_logs:/app/logs/predictions
+
+      # Reportes de drift
+      - drift_reports:/app/reports
+
+      # Modelos (opcional - para cache local)
+      - model_cache:/app/models
+
+      # Desarrollo: descomentar para hot-reload
+      # - ./api:/app/api:ro
+      # - ./src:/app/src:ro
 
     # Espera a que MLFlow inicie antes de arrancar
     depends_on:
       - mlflow
 
-    # Health check
+    # Health check mejorado
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -87,14 +121,38 @@ services:
     networks:
       - tetouan-network
 
-    # Logging
+    # Logging estructurado
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
-        max-file: "3"
+        max-file: "5"
+        labels: "service=api,component=prediction"
 
-# Networks
+# ============================================================================
+# Volúmenes persistentes
+# ============================================================================
+volumes:
+  mlflow_data:
+    driver: local
+    name: mlflow_data
+
+  prediction_logs:
+    driver: local
+    name: prediction_logs
+
+  drift_reports:
+    driver: local
+    name: drift_reports
+
+  model_cache:
+    driver: local
+    name: model_cache
+
+# ============================================================================
+# Redes
+# ============================================================================
 networks:
   tetouan-network:
     driver: bridge
+    name: tetouan-network

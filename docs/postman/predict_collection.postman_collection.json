@@ -1,8 +1,9 @@
 {
   "info": {
     "name": "Tetouan Power Consumption API",
-    "description": "Collection focused on the POST `/predict` endpoint described in `README.md`. Adjust the host/port variables before sending requests.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "description": "Complete API collection including prediction, health check, and drift monitoring endpoints. Adjust the host/port variables before sending requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.0.0"
   },
   "variable": [
     {
@@ -18,46 +19,264 @@
   ],
   "item": [
     {
-      "name": "POST /predict",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\",\n  \"features\": {\n    \"temperature\": 23.5,\n    \"humidity\": 65.2,\n    \"wind_speed\": 5.3,\n    \"general_diffuse_flows\": 120.5,\n    \"diffuse_flows\": 80.3,\n    \"hora\": 14,\n    \"minuto\": 30,\n    \"dia_de_semana\": 2,\n    \"dia_del_ano\": 150,\n    \"lag_zone_1_power_consumption_1_hora\": 25000.0,\n    \"lag_zone_1_power_consumption_24_horas\": 26500.0,\n    \"rolling_mean_zone_1_power_consumption_1_hora\": 25200.0,\n    \"rolling_mean_zone_1_power_consumption_24_horas\": 24800.0\n  }\n}"
-        },
-        "url": {
-          "raw": "http://{{api_host}}:{{api_port}}/predict",
-          "protocol": "http",
-          "host": [
-            "{{api_host}}"
-          ],
-          "port": "{{api_port}}",
-          "path": [
-            "predict"
+      "name": "Core API",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://{{api_host}}:{{api_port}}/health",
+              "protocol": "http",
+              "host": [
+                "{{api_host}}"
+              ],
+              "port": "{{api_port}}",
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Health check endpoint that returns service status and available models."
+          },
+          "response": [
+            {
+              "name": "Health check response",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"healthy\",\n  \"models_available\": {\n    \"VAR\": [0],\n    \"RandomForest\": [1, 2, 3],\n    \"XGBoost\": [1, 2, 3]\n  },\n  \"timestamp\": \"2025-01-15T14:30:00\"\n}"
+            }
           ]
         },
-        "description": "Invoke the prediction service with a representative feature set. Update `features` or `zone/model_type` to explore other models."
-      },
-      "response": [
         {
-          "name": "Example prediction response",
-          "status": "OK",
-          "code": 200,
-          "header": [
+          "name": "POST /predict",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\",\n  \"features\": {\n    \"temperature\": 23.5,\n    \"humidity\": 65.2,\n    \"wind_speed\": 5.3,\n    \"general_diffuse_flows\": 120.5,\n    \"diffuse_flows\": 80.3,\n    \"hora\": 14,\n    \"minuto\": 30,\n    \"dia_de_semana\": 2,\n    \"dia_del_ano\": 150,\n    \"lag_zone_1_power_consumption_1_hora\": 25000.0,\n    \"lag_zone_1_power_consumption_24_horas\": 26500.0,\n    \"rolling_mean_zone_1_power_consumption_1_hora\": 25200.0,\n    \"rolling_mean_zone_1_power_consumption_24_horas\": 24800.0\n  }\n}"
+            },
+            "url": {
+              "raw": "http://{{api_host}}:{{api_port}}/predict",
+              "protocol": "http",
+              "host": [
+                "{{api_host}}"
+              ],
+              "port": "{{api_port}}",
+              "path": [
+                "predict"
+              ]
+            },
+            "description": "Invoke the prediction service with a representative feature set. Update `features` or `zone/model_type` to explore other models. This endpoint also logs predictions for drift monitoring."
+          },
+          "response": [
             {
-              "key": "Content-Type",
-              "value": "application/json"
+              "name": "Example prediction response",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\",\n  \"model_path\": \"models/rf_zone_1_power_consumption.pkl\",\n  \"prediction\": 28668.46,\n  \"timestamp\": \"2025-11-07T11:02:35\",\n  \"features_used\": [\n    \"temperature\",\n    \"humidity\",\n    \"hora\",\n    \"minuto\",\n    \"lag_zone_1_power_consumption_1_hora\",\n    \"lag_zone_1_power_consumption_24_horas\"\n  ]\n}"
             }
-          ],
-          "body": "{\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\",\n  \"model_path\": \"models/rf_zone_1_power_consumption.pkl\",\n  \"prediction\": 28668.46,\n  \"timestamp\": \"2025-11-07T11:02:35\",\n  \"features_used\": [\n    \"temperature\",\n    \"humidity\",\n    \"hora\",\n    \"minuto\",\n    \"lag_zone_1_power_consumption_1_hora\",\n    \"lag_zone_1_power_consumption_24_horas\"\n  ]\n}"
+          ]
         }
-      ]
+      ],
+      "description": "Core prediction and health check endpoints"
+    },
+    {
+      "name": "Drift Monitoring",
+      "item": [
+        {
+          "name": "GET /monitoring/drift/status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://{{api_host}}:{{api_port}}/monitoring/drift/status?zone=1&model_type=RandomForest",
+              "protocol": "http",
+              "host": [
+                "{{api_host}}"
+              ],
+              "port": "{{api_port}}",
+              "path": [
+                "monitoring",
+                "drift",
+                "status"
+              ],
+              "query": [
+                {
+                  "key": "zone",
+                  "value": "1",
+                  "description": "Zone number (1, 2, or 3)"
+                },
+                {
+                  "key": "model_type",
+                  "value": "RandomForest",
+                  "description": "Model type (RandomForest, XGBoost, VAR)"
+                }
+              ]
+            },
+            "description": "Get the current status of drift monitoring for a specific zone and model type. Returns the last time a check was executed, time remaining for the next window, and a summary of the latest report (if available)."
+          },
+          "response": [
+            {
+              "name": "Drift status response",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\",\n  \"needs_drift_check\": false,\n  \"last_check_time\": \"2025-01-15T12:00:00\",\n  \"next_check_in_hours\": 3.75,\n  \"latest_report_summary\": {\n    \"timestamp\": \"2025-01-15T12:00:00\",\n    \"reference_period\": \"7 days ago (24h window)\",\n    \"current_period\": \"Last 24 hours\",\n    \"total_alerts\": 2,\n    \"severity_breakdown\": {\n      \"HIGH\": 1,\n      \"MEDIUM\": 1\n    },\n    \"drift_type_breakdown\": {\n      \"feature_drift\": 1,\n      \"performance_drift\": 1\n    },\n    \"has_critical_alerts\": false,\n    \"has_high_alerts\": true,\n    \"requires_action\": true\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "POST /monitoring/actual",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"zone\": 1,\n  \"actual_value\": 28500.0,\n  \"timestamp\": \"2025-01-15T14:30:00\"\n}"
+            },
+            "url": {
+              "raw": "http://{{api_host}}:{{api_port}}/monitoring/actual",
+              "protocol": "http",
+              "host": [
+                "{{api_host}}"
+              ],
+              "port": "{{api_port}}",
+              "path": [
+                "monitoring",
+                "actual"
+              ]
+            },
+            "description": "Log an actual observed value for drift monitoring. If `timestamp` is omitted, the API uses the current time. This enables comparisons between logged predictions and observed values to detect performance drift."
+          },
+          "response": [
+            {
+              "name": "Actual value logged",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"message\": \"Valor real registrado exitosamente\",\n  \"zone\": 1,\n  \"actual_value\": 28500.0,\n  \"timestamp\": \"2025-01-15T14:30:00\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "POST /monitoring/drift/check",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://{{api_host}}:{{api_port}}/monitoring/drift/check?zone=1&model_type=RandomForest",
+              "protocol": "http",
+              "host": [
+                "{{api_host}}"
+              ],
+              "port": "{{api_port}}",
+              "path": [
+                "monitoring",
+                "drift",
+                "check"
+              ],
+              "query": [
+                {
+                  "key": "zone",
+                  "value": "1",
+                  "description": "Zone number (1, 2, or 3)"
+                },
+                {
+                  "key": "model_type",
+                  "value": "RandomForest",
+                  "description": "Model type (RandomForest, XGBoost, VAR)"
+                }
+              ]
+            },
+            "description": "Manually trigger a drift check for a specific zone and model type. This will analyze recent predictions vs baseline data to detect statistical, temporal, and performance drift."
+          },
+          "response": [
+            {
+              "name": "Drift check completed",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"message\": \"Chequeo de drift completado\",\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\",\n  \"summary\": {\n    \"timestamp\": \"2025-01-15T14:35:00\",\n    \"total_alerts\": 3,\n    \"severity_breakdown\": {\n      \"HIGH\": 1,\n      \"MEDIUM\": 2\n    },\n    \"drift_type_breakdown\": {\n      \"performance_drift\": 1,\n      \"temporal_drift\": 1\n    },\n    \"has_critical_alerts\": false,\n    \"has_high_alerts\": true,\n    \"requires_action\": true\n  },\n  \"recommendations\": [\n    \"Schedule model retraining within 24-48 hours\",\n    \"Review feature engineering pipeline for potential issues\"\n  ]\n}"
+            },
+            {
+              "name": "No drift detected",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"message\": \"Chequeo de drift completado\",\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\",\n  \"summary\": {\n    \"timestamp\": \"2025-01-15T14:35:00\",\n    \"total_alerts\": 0,\n    \"severity_breakdown\": {},\n    \"drift_type_breakdown\": {},\n    \"has_critical_alerts\": false,\n    \"has_high_alerts\": false,\n    \"requires_action\": false\n  },\n  \"recommendations\": [\n    \"No significant drift detected - model performing as expected\"\n  ]\n}"
+            },
+            {
+              "name": "Insufficient data",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"insufficient_data\",\n  \"message\": \"Datos insuficientes para ejecutar el monitoreo\",\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\"\n}"
+            },
+            {
+              "name": "Error during drift check",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"error\",\n  \"message\": \"Error: Monitoring not initialized\",\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\"\n}"
+            }
+          ]
+        }
+      ],
+      "description": "Endpoints for real-time drift monitoring, including status checks, logging actual values, and triggering manual drift analysis."
     }
   ]
 }

@@ -217,3 +217,179 @@ class HealthResponse(BaseModel):
             ]
         }
     }
+
+
+class DriftStatusResponse(BaseModel):
+    """
+    Esquema de respuesta para el estado de drift monitoring.
+
+    Attributes
+    ----------
+    zone : int
+        Zona monitoreada
+    model_type : str
+        Tipo de modelo monitoreado
+    needs_drift_check : bool
+        Indica si es necesario realizar un chequeo de drift
+    last_check_time : Optional[str]
+        Timestamp del último chequeo de drift
+    next_check_in_hours : float
+        Horas hasta el próximo chequeo programado
+    latest_report_summary : Optional[Dict[str, Any]]
+        Resumen del último reporte de drift
+    """
+
+    zone: int = Field(..., description="Zona monitoreada")
+    model_type: str = Field(..., description="Tipo de modelo monitoreado")
+    needs_drift_check: bool = Field(..., description="Indica si necesita chequeo de drift")
+    last_check_time: Optional[str] = Field(None, description="Último chequeo de drift")
+    next_check_in_hours: float = Field(..., description="Horas hasta próximo chequeo")
+    latest_report_summary: Optional[Dict[str, Any]] = Field(
+        None, description="Resumen del último reporte"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "zone": 1,
+                    "model_type": "RandomForest",
+                    "needs_drift_check": False,
+                    "last_check_time": "2025-01-15T14:00:00",
+                    "next_check_in_hours": 4.5,
+                    "latest_report_summary": {
+                        "total_alerts": 2,
+                        "requires_action": True,
+                        "has_critical_alerts": False
+                    }
+                }
+            ]
+        }
+    }
+
+
+class DriftCheckResponse(BaseModel):
+    """
+    Respuesta para chequeos manuales de drift.
+
+    Attributes
+    ----------
+    status : str
+        Estado general del chequeo (success, insufficient_data, error)
+    message : str
+        Mensaje descriptivo del resultado
+    zone : int
+        Zona evaluada
+    model_type : str
+        Tipo de modelo evaluado
+    summary : Optional[Dict[str, Any]]
+        Resumen del reporte generado
+    recommendations : Optional[List[str]]
+        Recomendaciones accionables
+    """
+
+    status: str = Field(..., description="Estado del chequeo manual")
+    message: str = Field(..., description="Detalles del resultado")
+    zone: int = Field(..., ge=1, le=3, description="Zona evaluada")
+    model_type: str = Field(..., description="Modelo evaluado")
+    summary: Optional[Dict[str, Any]] = Field(
+        None, description="Resumen del reporte de drift"
+    )
+    recommendations: Optional[List[str]] = Field(
+        None, description="Lista de recomendaciones"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "status": "success",
+                    "message": "Chequeo de drift completado",
+                    "zone": 1,
+                    "model_type": "RandomForest",
+                    "summary": {
+                        "total_alerts": 3,
+                        "has_critical_alerts": False,
+                        "has_high_alerts": True,
+                        "requires_action": True,
+                    },
+                    "recommendations": [
+                        "Schedule model retraining within 24-48 hours",
+                        "Review feature engineering pipeline for potential issues",
+                    ],
+                }
+            ]
+        }
+    }
+
+
+class ActualValueRequest(BaseModel):
+    """
+    Esquema de solicitud para registrar valor real observado.
+
+    Attributes
+    ----------
+    zone : int
+        Zona de consumo (1, 2 o 3)
+    actual_value : float
+        Valor real observado
+    timestamp : Optional[datetime]
+        Timestamp de la observación (por defecto: ahora)
+    """
+
+    zone: int = Field(..., ge=1, le=3, description="Zona de consumo (1, 2 o 3)")
+    actual_value: float = Field(..., description="Valor real observado")
+    timestamp: Optional[datetime] = Field(
+        None, description="Timestamp de la observación (opcional)"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "zone": 1,
+                    "actual_value": 25432.18,
+                    "timestamp": "2025-01-15T14:30:00"
+                }
+            ]
+        }
+    }
+
+
+class ActualValueResponse(BaseModel):
+    """
+    Respuesta al registrar valores reales observados.
+
+    Attributes
+    ----------
+    status : str
+        Resultado de la operaciA3n (success o error)
+    message : str
+        Mensaje detallando la operaciA3n
+    zone : int
+        Zona asociada
+    actual_value : float
+        Valor real registrado
+    timestamp : datetime
+        Momento asociado a la observaciA3n
+    """
+
+    status: str = Field(..., description="Resultado del registro")
+    message: str = Field(..., description="Mensaje informativo")
+    zone: int = Field(..., ge=1, le=3, description="Zona registrada")
+    actual_value: float = Field(..., description="Valor real observado")
+    timestamp: datetime = Field(..., description="Timestamp registrado")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "status": "success",
+                    "message": "Valor real registrado exitosamente",
+                    "zone": 1,
+                    "actual_value": 25432.18,
+                    "timestamp": "2025-01-15T14:30:00",
+                }
+            ]
+        }
+    }
