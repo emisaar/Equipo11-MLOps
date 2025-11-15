@@ -68,3 +68,7 @@ data/processed/
 *.pyc
 *.pyo
 
+# Logs
+*.log
+logs/
+
