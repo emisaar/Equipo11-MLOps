@@ -61,25 +61,6 @@ app = FastAPI(
     description="""
     API para realizar predicciones de consumo eléctrico en las tres zonas de Tetouan City
     utilizando modelos de Machine Learning entrenados (VAR, Random Forest, XGBoost).
-
-    ## Características
-
-    * **Predicción multi-zona**: Soporte para zonas 1, 2 y 3
-    * **Múltiples modelos**: VAR (multivariado), Random Forest y XGBoost
-    * **Validación robusta**: Validación de entrada con Pydantic
-    * **Manejo de errores**: Mensajes de error descriptivos y códigos HTTP apropiados
-    * **Cache de modelos**: Los modelos se cargan una vez y se mantienen en memoria
-    * **Health checks**: Endpoint para verificar el estado del servicio
-
-    ## Modelos Disponibles
-
-    Los modelos se encuentran en el directorio `models/`:
-
-    * **VAR**: `models/var_model.pkl` (modelo multivariado)
-    * **Random Forest**: `models/rf_zone_{zone}_power_consumption.pkl`
-    * **XGBoost**: `models/xgb_zone_{zone}_power_consumption.pkl`
-
-    Donde `{zone}` es 1, 2 o 3.
     """,
     version="1.0.0",
     lifespan=lifespan

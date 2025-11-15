@@ -78,7 +78,7 @@ PASOS_POR_DIA = 24 * PASOS_POR_HORA  # 144 registros por día
 DEFAULT_LAGS: Tuple[int, ...] = (1, 2, 24)
 
 # ===== Configuración del split =====
-DEFAULT_TEST_SIZE = 0.05  # 5% como en sample.py
+DEFAULT_TEST_SIZE = 0.05
 DEFAULT_RANDOM_STATE = 42
 
 # ===== Configuración de Modelos =====
@@ -91,28 +91,28 @@ VAR_CONFIG: Dict[str, Any] = {
 
 # Random Forest
 RF_CONFIG: Dict[str, Any] = {
-    "n_iter": 10,  # Ajustado según sample.py (línea 1012)
+    "n_iter": 10,
     "n_splits": 5,
     "random_state": DEFAULT_RANDOM_STATE
 }
 
 # XGBoost
 XGB_CONFIG: Dict[str, Any] = {
-    "n_iter": 10,  # Ajustado según sample.py (línea 1013)
+    "n_iter": 10,
     "n_splits": 5,
     "random_state": DEFAULT_RANDOM_STATE
 }
 
 # LSTM
 LSTM_CONFIG: Dict[str, Any] = {
-    "n_steps_in": 144,  # 24 horas de lookback (línea 1014 sample.py)
-    "epochs": 30,  # Línea 1015 sample.py
+    "n_steps_in": 144,  # 24 horas de lookback
+    "epochs": 30,
     "batch_size": 32,
     "random_state": DEFAULT_RANDOM_STATE
 }
 
 # ===== Evaluación =====
-N_STEPS_PREDICT = 10  # Número de pasos a predecir (línea 1011 sample.py)
+N_STEPS_PREDICT = 10  # Número de pasos a predecir
 WARMUP_STEPS = 200    # Pasos de calentamiento para predicción recursiva
 
 # ===== Configuración de MLFlow =====
@@ -121,4 +121,4 @@ MLFLOW_TRACKING_URI = None  # Usa por defecto ./mlruns
 
 # ===== Visualización =====
 # Parámetros para descomposición estacional
-SEASONAL_PERIOD = 13  # Periodo para descomposición STL/seasonal (línea 510, 527 sample.py)
+SEASONAL_PERIOD = 13  # Periodo para descomposición STL/seasonal
