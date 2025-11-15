@@ -24,12 +24,9 @@ split:
 # Configuración de modelos
 models:
   output_dir: models
-  # Tipos de modelos a entrenar: VAR, RandomForest, XGBoost, LSTM
-  types:
-    - VAR
-    - RandomForest
-    - XGBoost
-    # - LSTM
+  # Tipos de modelos a entrenar (usar snake_case): var, random_forest, xgboost, lstm
+  to_train:
+    - random_forest
 
   # Configuración de modelo VAR (Vector AutoRegression)
   var:
@@ -87,7 +84,7 @@ evaluation:
 # MLflow tracking
 mlflow:
   mlflow_enabled: true
-  tracking_uri: http://localhost:5000
+  tracking_uri: ${MLFLOW_TRACKING_URI}
   experiment_name: TetouanCityPower
   run_name: MultiModelComparison
   # Selección de champion

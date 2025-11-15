@@ -1,4 +1,4 @@
-# main.py
+﻿# main.py
 # Aplicación FastAPI para servir modelos de predicción de consumo eléctrico
 # ===========================================================================
 
@@ -38,43 +38,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Variable global para el predictor
+# Variable global para el predictor y nombre estandar del modelo champion
 predictor: Optional[ModelPredictor] = None
-
-_MODEL_TYPE_ALIASES = {
-    "VAR": "VAR",
-    "RANDOMFOREST": "RandomForest",
-    "RF": "RandomForest",
-    "XGBOOST": "XGBoost",
-    "XGB": "XGBoost",
-}
-
-
-def normalize_model_type_name(model_type: str) -> str:
-    """Normaliza el nombre del modelo y valida opciones soportadas."""
-    if not model_type:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": "InvalidModelType",
-                "message": "model_type es obligatorio"
-            }
-        )
-
-    normalized_key = model_type.replace(" ", "").upper()
-    normalized_value = _MODEL_TYPE_ALIASES.get(normalized_key)
-
-    if normalized_value is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": "InvalidModelType",
-                "message": "Tipo de modelo invA�lido. Usa VAR, RandomForest o XGBoost."
-            }
-        )
-
-    return normalized_value
-
+CHAMPION_MODEL_TYPE = "Champion"
 
 def ensure_predictor_ready() -> ModelPredictor:
     """Garantiza que el predictor de MLflow esté inicializado antes de usarlo."""
@@ -233,7 +199,7 @@ async def health_check():
     "/predict",
     response_model=PredictionResponse,
     summary="Realizar Predicción",
-    description="Realiza una predicción de consumo eléctrico para la zona y modelo especificados",
+    description="Realiza una predicción de consumo eléctrico usando el modelo champion desplegado",
     tags=["Predicción"],
     responses={
         200: {
@@ -245,7 +211,7 @@ async def health_check():
             "model": ErrorResponse
         },
         404: {
-            "description": "Modelo no encontrado",
+            "description": "Modelo champion no encontrado",
             "model": ErrorResponse
         },
         500: {
@@ -256,26 +222,26 @@ async def health_check():
 )
 async def predict(request: PredictionRequest):
     """
-    Realiza una predicción de consumo eléctrico.
+    Realiza una predicción de consumo eléctrico usando el modelo champion.
 
     Este endpoint recibe las features de entrada y retorna la predicción
-    del consumo eléctrico usando el modelo especificado.
+    del consumo eléctrico usando el mejor modelo desplegado (champion).
 
     Parameters
     ----------
     request : PredictionRequest
-        Solicitud con zona, tipo de modelo y features
+        Solicitud con features
 
     Returns
     -------
     PredictionResponse
-        Predicción y metadatos del modelo usado
+        Predicción y metadatos del modelo champion usado
 
     Raises
     ------
     HTTPException
         - 400: Si las features son inválidas
-        - 404: Si el modelo no existe
+        - 404: Si el modelo champion no está disponible
         - 500: Si hay un error interno durante la predicción
 
     Examples
@@ -286,8 +252,6 @@ async def predict(request: PredictionRequest):
     response = requests.post(
         "http://localhost:8000/predict",
         json={
-            "zone": 1,
-            "model_type": "RandomForest",
             "features": {
                 "temperature": 23.5,
                 "humidity": 65.2,
@@ -302,12 +266,9 @@ async def predict(request: PredictionRequest):
     ```
     """
     try:
-        # Ejecutar predicción
+        # Ejecutar predicción con modelo champion
         active_predictor = ensure_predictor_ready()
-        normalized_model_type = normalize_model_type_name(request.model_type)
-        result = active_predictor.predict(
-            zone=request.zone,
-            model_type=normalized_model_type,
+        result = active_predictor.predict_with_champion(
             features=request.features
         )
 
@@ -315,44 +276,55 @@ async def predict(request: PredictionRequest):
 
         # Construir respuesta
         response = PredictionResponse(
-            zone=request.zone,
-            model_type=normalized_model_type,
-            model_path=result.get('model_name', 'unknown'),  # Usar model_name de MLFlow
+            model_name=result.get('model_name', 'champion'),
             prediction=result['prediction'],
             features_used=result['features_used'],
             timestamp=prediction_timestamp
         )
 
+        # Intentar registrar en el sistema de monitoreo
+        # (nota: el monitoreo ahora no tiene zona/model_type específicos)
         try:
             prediction_logger = get_prediction_logger()
+            # Extraer zona del nombre del modelo si es posible
+            model_name = result.get('model_name', '')
+            zone = 1  # Default
+            if 'zone_1' in model_name:
+                zone = 1
+            elif 'zone_2' in model_name:
+                zone = 2
+            elif 'zone_3' in model_name:
+                zone = 3
+
             prediction_logger.log_prediction(
-                zone=request.zone,
-                model_type=normalized_model_type,
+                zone=zone,
+                model_type=CHAMPION_MODEL_TYPE,
                 features=request.features,
                 prediction=result['prediction'],
                 timestamp=prediction_timestamp
             )
         except RuntimeError:
             logger.warning(
-                "Sistema de monitoreo no inicializado: la predicciA3n no se registrA3."
+                "Sistema de monitoreo no inicializado: la predicción no se registró."
             )
         except Exception as log_error:
-            logger.error(f"No se pudo registrar la predicciA3n para monitoreo: {log_error}")
+            logger.error(f"No se pudo registrar la predicción para monitoreo: {log_error}")
 
         logger.info(
-            f"Predicción exitosa - Zona: {request.zone}, "
-            f"Modelo: {normalized_model_type}, Predicción: {result['prediction']:.2f}"
+            f"Predicción exitosa con modelo champion - "
+            f"Modelo: {result.get('model_name', 'champion')}, "
+            f"Predicción: {result['prediction']:.2f}"
         )
 
         return response
 
     except ModelNotFoundError as e:
-        logger.error(f"Modelo no encontrado: {e}")
+        logger.error(f"Modelo champion no encontrado: {e}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
                 "error": "ModelNotFoundError",
-                "message": "No se encontró el modelo especificado",
+                "message": "No se encontró el modelo champion desplegado",
                 "detail": str(e)
             }
         )
@@ -439,15 +411,13 @@ async def log_actual_value(request: ActualValueRequest):
     "/monitoring/drift/status",
     response_model=DriftStatusResponse,
     summary="Consultar estado del monitoreo de drift",
-    description="Retorna la A�ltima informaciA3n disponible del monitoreo de drift para un modelo.",
+    description="Retorna la informacion disponible del monitoreo de drift para el modelo champion.",
     tags=["Monitoreo"]
 )
 async def drift_status(
-    zone: int = Query(..., ge=1, le=3, description="Zona a monitorear"),
-    model_type: str = Query(..., description="Tipo de modelo (VAR, RandomForest, XGBoost)")
+    zone: int = Query(..., ge=1, le=3, description="Zona a monitorear")
 ):
-    """Obtiene el estado del monitoreo de drift para una zona y modelo."""
-    normalized_model = normalize_model_type_name(model_type)
+    """Obtiene el estado del monitoreo de drift para una zona usando el modelo champion."""
 
     try:
         drift_monitor = get_drift_monitor()
@@ -456,14 +426,14 @@ async def drift_status(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={
                 "error": "MonitoringUnavailable",
-                "message": "El sistema de monitoreo no estA� inicializado. Intenta mA�s tarde."
+                "message": "El sistema de monitoreo no esta inicializado. Intenta mas tarde."
             }
         )
 
     try:
         status_payload = drift_monitor.get_drift_status(
             zone=zone,
-            model_type=normalized_model
+            model_type=CHAMPION_MODEL_TYPE
         )
     except Exception as exc:
         logger.error(f"No se pudo obtener el estado de drift: {exc}")
@@ -478,6 +448,7 @@ async def drift_status(
 
     next_check = status_payload.get("next_check_in_hours") or 0
     status_payload["next_check_in_hours"] = max(0.0, float(next_check))
+    status_payload["model_type"] = CHAMPION_MODEL_TYPE
 
     return DriftStatusResponse(**status_payload)
 
@@ -486,15 +457,13 @@ async def drift_status(
     "/monitoring/drift/check",
     response_model=DriftCheckResponse,
     summary="Ejecutar chequeo manual de drift",
-    description="Fuerza la ejecuciA3n del pipeline de monitoreo de drift independientemente del intervalo automA�tico.",
+    description="Fuerza la ejecucion del pipeline de monitoreo de drift para el modelo champion.",
     tags=["Monitoreo"]
 )
 async def manual_drift_check(
-    zone: int = Query(..., ge=1, le=3, description="Zona a evaluar"),
-    model_type: str = Query(..., description="Tipo de modelo (VAR, RandomForest, XGBoost)")
+    zone: int = Query(..., ge=1, le=3, description="Zona a evaluar")
 ):
-    """Ejecuta un chequeo manual de drift."""
-    normalized_model = normalize_model_type_name(model_type)
+    """Ejecuta un chequeo manual de drift usando el modelo champion."""
 
     try:
         drift_monitor = get_drift_monitor()
@@ -503,19 +472,19 @@ async def manual_drift_check(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={
                 "error": "MonitoringUnavailable",
-                "message": "El sistema de monitoreo no estA� inicializado. Intenta mA�s tarde."
+                "message": "El sistema de monitoreo no esta inicializado. Intenta mas tarde."
             }
         )
 
     try:
-        report = drift_monitor.check_drift(zone=zone, model_type=normalized_model)
+        report = drift_monitor.check_drift(zone=zone, model_type=CHAMPION_MODEL_TYPE)
     except Exception as exc:
         logger.error(f"Error ejecutando drift check: {exc}")
         return DriftCheckResponse(
             status="error",
             message=f"Error: {exc}",
             zone=zone,
-            model_type=normalized_model
+            model_type=CHAMPION_MODEL_TYPE
         )
 
     if report is None:
@@ -523,7 +492,7 @@ async def manual_drift_check(
             status="insufficient_data",
             message="Datos insuficientes para ejecutar el monitoreo",
             zone=zone,
-            model_type=normalized_model
+            model_type=CHAMPION_MODEL_TYPE
         )
 
     summary = report.get_summary()
@@ -533,7 +502,7 @@ async def manual_drift_check(
         status="success",
         message="Chequeo de drift completado",
         zone=zone,
-        model_type=normalized_model,
+        model_type=CHAMPION_MODEL_TYPE,
         summary=summary,
         recommendations=recommendations
     )
@@ -580,3 +549,4 @@ if __name__ == "__main__":
         reload=True,  # Recarga automática en desarrollo
         log_level="info"
     )
+

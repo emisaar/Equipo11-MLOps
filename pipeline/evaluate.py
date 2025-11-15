@@ -1,19 +1,37 @@
 ﻿#!/usr/bin/env python
 """
-Pipeline Stage 5: EvaluaciÃ³n de modelos
-EvalÃºa todos los modelos entrenados y genera mÃ©tricas comparativas.
-Estructura parÃ¡metros desde DVC (params.yaml) e integra configuraciÃ³n de MLflow.
+Pipeline Stage 5: Evaluación de modelos
+Evalúa todos los modelos entrenados y genera métricas comparativas.
+Estructura parámetros desde DVC (params.yaml) e integra configuración de MLflow.
 """
+
+# Configurar UTF-8 para evitar errores de Unicode en Windows
+import sys
+import os
+if sys.platform == "win32":
+    # Forzar UTF-8 en stdout y stderr para manejar emojis de MLflow
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 from pathlib import Path
 import yaml
-import os
+from dotenv import load_dotenv
 from src.modeling.evaluate import ModelEvaluator
 
 
 if __name__ == "__main__":
+    # Cargar variables desde .env (para obtener MLFLOW_TRACKING_URI, etc.)
+    load_dotenv()
+
     # Carga parámetros desde params.yaml
     params = yaml.safe_load(open("params.yaml", "r", encoding="utf-8"))
+
+    # Prioriza la variable de entorno MLFLOW_TRACKING_URI; si no existe, usa params.yaml
+    tracking_uri = os.getenv(
+        "MLFLOW_TRACKING_URI",
+        str(params["mlflow"]["tracking_uri"])
+    )
 
     # Ejecuta evaluación
     evaluator = ModelEvaluator(
@@ -25,7 +43,7 @@ if __name__ == "__main__":
         n_steps=params["evaluation"]["n_steps"],
         mlflow_enabled=params["mlflow"]["mlflow_enabled"],
         mlflow_experiment=params["mlflow"]["experiment_name"],
-        mlflow_tracking_uri=params["mlflow"]["tracking_uri"],
+        mlflow_tracking_uri=tracking_uri,
         champion_metric_name=params["mlflow"].get("champion_metric_name", "RMSE"),
         champion_higher_is_better=params["mlflow"].get("champion_higher_is_better", False),
     )
@@ -37,4 +55,4 @@ if __name__ == "__main__":
     
     metrics_path = evaluator.run()
 
-    print(f"\nEvaluaciÃ³n completada. MÃ©tricas guardadas en: {metrics_path}")
+    print(f"\nEvaluación completada. Métricas guardadas en: {metrics_path}")

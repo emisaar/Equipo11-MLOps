@@ -153,9 +153,11 @@ class ModelEvaluator:
                     metrics_output=self.metrics_output,
                     figures_output=self.figures_output,
                 )
-            except Exception:
+            except Exception as e:
                 # No interrumpe la evaluación si MLflow falla
-                pass
+                import traceback
+                print(f"\n[WARN] Error en MLflow tracking: {e}")
+                traceback.print_exc()
 
         # Muestra resumen
         self._print_summary(metrics)

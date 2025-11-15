@@ -454,8 +454,12 @@ class MLflowTracker:
         metric_name: str = "RMSE",
         higher_is_better: bool = False,
         registered_model_name: Optional[str] = None,
+        models_dir: Optional[Path] = None,
     ) -> Optional[Dict[str, Any]]:
-        """Busca la mejor corrida del experimento y asigna alias 'champion'."""
+        """Busca la mejor corrida del experimento y asigna alias 'champion'.
+
+        Además, guarda el modelo físicamente con sufijo _champion.
+        """
         if not self.enabled or mlflow is None:
             return None
 
@@ -525,6 +529,23 @@ class MLflowTracker:
             client.set_registered_model_alias(name=reg_name, alias="champion", version=version_to_promote)
         except Exception:
             return None
+
+        # Guardar el modelo físicamente con sufijo _champion
+        if models_dir is not None:
+            try:
+                import joblib
+                model_uri = f"models:/{reg_name}@champion"
+                champion_model = mlflow.sklearn.load_model(model_uri)
+
+                # Crear nombre del archivo con sufijo _champion
+                champion_path = models_dir / f"{reg_name}_champion.pkl"
+                models_dir.mkdir(parents=True, exist_ok=True)
+
+                # Guardar el modelo
+                joblib.dump(champion_model, champion_path)
+                print(f"Modelo champion guardado en: {champion_path}")
+            except Exception as e:
+                print(f"Advertencia: No se pudo guardar el modelo champion físicamente: {e}")
 
         return {
             "experiment": exp_name,
@@ -596,10 +617,16 @@ class MLflowTracker:
 
             # Seleccionar champion global dentro del experimento
             try:
-                self.promote_best_run_to_champion(
+                champion_info = self.promote_best_run_to_champion(
                     metric_name=self.champion_metric_name,
                     higher_is_better=self.champion_higher_is_better,
+                    models_dir=models_dir,
                 )
+                if champion_info:
+                    print(f"\nModelo Champion identificado:")
+                    print(f"  Nombre: {champion_info['model_name']}")
+                    print(f"  Versión: {champion_info['version']}")
+                    print(f"  {champion_info['metric']}: {champion_info['value']:.4f}")
             except Exception:
                 pass
 

@@ -42,16 +42,20 @@ class ModelPredictor:
         Cliente de MLFlow para interactuar con el Registry
     models_cache : Dict[str, Any]
         Cache de modelos cargados en memoria
+    champion_model : Any
+        Modelo champion cargado (mejor modelo global)
+    champion_model_name : str
+        Nombre del modelo champion
     """
 
-    def __init__(self, models_dir: str = None, mlflow_uri: str = None):
+    def __init__(self, models_dir: str = "models", mlflow_uri: str = None):
         """
         Inicializa el predictor de modelos.
 
         Parameters
         ----------
         models_dir : str, optional
-            Ignorado. Se mantiene por compatibilidad con código existente.
+            Directorio donde se encuentran los modelos champion guardados físicamente.
         mlflow_uri : str, optional
             URI del servidor MLFlow. Si no se provee, se obtiene de la variable
             de entorno MLFLOW_TRACKING_URI (default: http://mlflow:5000)
@@ -64,10 +68,20 @@ class ModelPredictor:
         mlflow.set_tracking_uri(self.mlflow_uri)
         self.mlflow_client = MlflowClient()
         self.models_cache: Dict[str, Any] = {}
+        self.models_dir = Path(models_dir)
+        self.champion_model = None
+        self.champion_model_name = None
+
+        # Cache para modelos disponibles y flag para evitar reintentos de MLflow
+        self._available_models_cache: Dict[str, Any] = {}
+        self._mlflow_attempted = False
 
         logger.info(f"ModelPredictor inicializado")
         logger.info(f"MLFlow Server: {self.mlflow_uri}")
-        logger.info(f"Modelos se cargarán desde S3 vía MLFlow Registry")
+        logger.info(f"Directorio de modelos: {self.models_dir}")
+
+        # Cargar modelo champion al inicializar
+        self._load_champion_model()
 
     def _get_registry_name(self, zone: int, model_type: str) -> str:
         """
@@ -115,6 +129,86 @@ class ModelPredictor:
             raise ValueError(f"Zona debe ser 1, 2 o 3. Recibido: {zone}")
 
         return f"powerTetouan_{model_prefix}_zone_{zone}_power_consumption"
+
+    def _load_champion_model(self) -> None:
+        """
+        Carga el modelo champion desde el directorio de modelos.
+
+        Busca archivos con sufijo _champion.pkl en el directorio de modelos
+        y carga el primero que encuentre.
+        """
+        try:
+            import joblib
+
+            # Buscar archivos _champion.pkl en el directorio
+            if not self.models_dir.exists():
+                logger.warning(f"Directorio de modelos no existe: {self.models_dir}")
+                logger.info("Intentando cargar desde MLFlow Registry...")
+                self._load_champion_from_mlflow()
+                return
+
+            champion_files = list(self.models_dir.glob("*_champion.pkl"))
+
+            if not champion_files:
+                logger.warning("No se encontró modelo champion local")
+                logger.info("Intentando cargar desde MLFlow Registry...")
+                self._load_champion_from_mlflow()
+                return
+
+            # Usar el primer modelo champion encontrado
+            champion_path = champion_files[0]
+            self.champion_model = joblib.load(champion_path)
+            self.champion_model_name = champion_path.stem.replace("_champion", "")
+
+            logger.info(f"✓ Modelo champion cargado desde: {champion_path}")
+            logger.info(f"  Nombre del modelo: {self.champion_model_name}")
+
+        except Exception as e:
+            logger.error(f"Error al cargar modelo champion: {e}")
+            logger.info("Intentando cargar desde MLFlow Registry...")
+            self._load_champion_from_mlflow()
+
+    def _load_champion_from_mlflow(self) -> None:
+        """
+        Carga el modelo champion desde MLFlow Registry usando el alias 'overall_champion'.
+        """
+        try:
+            # Buscar modelos con alias 'overall_champion' o 'champion'
+            registered_models = self.mlflow_client.search_registered_models(
+                filter_string="name LIKE 'powerTetouan_%'"
+            )
+
+            for rm in registered_models:
+                try:
+                    # Intentar obtener overall_champion primero
+                    champion_version = self.mlflow_client.get_model_version_by_alias(
+                        name=rm.name,
+                        alias="overall_champion"
+                    )
+                    model_uri = f"models:/{rm.name}@overall_champion"
+                    self.champion_model = mlflow.sklearn.load_model(model_uri)
+                    self.champion_model_name = rm.name
+                    logger.info(f"✓ Modelo champion cargado desde MLFlow (overall_champion): {rm.name}")
+                    return
+                except Exception:
+                    # Si no tiene overall_champion, intentar con champion
+                    try:
+                        champion_version = self.mlflow_client.get_model_version_by_alias(
+                            name=rm.name,
+                            alias="champion"
+                        )
+                        model_uri = f"models:/{rm.name}@champion"
+                        self.champion_model = mlflow.sklearn.load_model(model_uri)
+                        self.champion_model_name = rm.name
+                        logger.info(f"✓ Modelo champion cargado desde MLFlow (champion): {rm.name}")
+                        return
+                    except Exception:
+                        continue
+
+            logger.warning("No se encontró modelo champion en MLFlow Registry")
+
+        except Exception as e:
+            logger.error(f"Error al cargar modelo champion desde MLFlow: {e}")
 
     def load_model(self, zone: int, model_type: str) -> Any:
         """
@@ -262,13 +356,35 @@ class ModelPredictor:
 
     def get_available_models(self) -> Dict[str, Any]:
         """
-        Obtiene lista de modelos disponibles en MLFlow Registry.
+        Obtiene lista de modelos disponibles en MLFlow Registry (con caché).
+
+        Usa caché para evitar reintentos continuos de conexión a MLflow.
+        Solo intenta conectar una vez al inicio.
 
         Returns
         -------
         Dict[str, Any]
             Diccionario con modelos disponibles y sus versiones
         """
+        # Si ya tenemos el caché, retornarlo
+        if self._available_models_cache:
+            return self._available_models_cache
+
+        # Si ya intentamos y falló, retornar info del modelo champion local
+        if self._mlflow_attempted:
+            if self.champion_model and self.champion_model_name:
+                return {
+                    self.champion_model_name: {
+                        'champion_version': 'local',
+                        'latest_version': 'local',
+                        'source': 'file_system'
+                    }
+                }
+            return {}
+
+        # Marcar que ya intentamos conectar a MLflow
+        self._mlflow_attempted = True
+
         try:
             # Buscar modelos registrados que empiecen con 'powerTetouan_'
             registered_models = self.mlflow_client.search_registered_models(
@@ -285,20 +401,106 @@ class ModelPredictor:
                     )
                     available[rm.name] = {
                         'champion_version': champion_version.version,
-                        'latest_version': rm.latest_versions[0].version if rm.latest_versions else None
+                        'latest_version': rm.latest_versions[0].version if rm.latest_versions else None,
+                        'source': 'mlflow'
                     }
                 except Exception:
                     # No tiene alias champion
                     available[rm.name] = {
                         'champion_version': None,
-                        'latest_version': rm.latest_versions[0].version if rm.latest_versions else None
+                        'latest_version': rm.latest_versions[0].version if rm.latest_versions else None,
+                        'source': 'mlflow'
                     }
 
+            # Guardar en caché
+            self._available_models_cache = available
             return available
 
         except Exception as e:
             logger.error(f"Error al obtener modelos disponibles: {str(e)}")
+
+            # Si tenemos modelo champion local, retornar su info
+            if self.champion_model and self.champion_model_name:
+                local_info = {
+                    self.champion_model_name: {
+                        'champion_version': 'local',
+                        'latest_version': 'local',
+                        'source': 'file_system'
+                    }
+                }
+                self._available_models_cache = local_info
+                return local_info
+
             return {}
+
+    def predict_with_champion(
+        self,
+        features: Dict[str, float]
+    ) -> Dict[str, Any]:
+        """
+        Ejecuta predicción con el modelo champion (mejor modelo global).
+
+        Parameters
+        ----------
+        features : Dict[str, float]
+            Diccionario con las features de entrada
+
+        Returns
+        -------
+        Dict[str, Any]
+            Diccionario con la predicción y metadatos:
+            - prediction: valor predicho
+            - model_name: nombre del modelo champion usado
+            - features_used: lista de features utilizadas
+
+        Raises
+        ------
+        ModelNotFoundError
+            Si el modelo champion no está cargado
+        InvalidFeaturesError
+            Si las features proporcionadas son inválidas
+        """
+        if self.champion_model is None:
+            raise ModelNotFoundError(
+                "Modelo champion no está cargado. Verifica que el modelo esté desplegado correctamente."
+            )
+
+        try:
+            df = pd.DataFrame([features])
+
+            # Verificar que no hay valores nulos
+            if df.isnull().any().any():
+                null_features = df.columns[df.isnull().any()].tolist()
+                raise InvalidFeaturesError(
+                    f"Features con valores nulos: {null_features}"
+                )
+
+            # Ejecutar predicción
+            prediction = self.champion_model.predict(df)[0]
+
+            # Preparar respuesta
+            available_features = list(features.keys())
+
+            result = {
+                'prediction': float(prediction),
+                'model_name': self.champion_model_name or "champion",
+                'features_used': available_features
+            }
+
+            logger.info(
+                f"✓ Predicción exitosa con modelo champion - "
+                f"Predicción: {prediction:.2f}"
+            )
+
+            return result
+
+        except KeyError as e:
+            raise InvalidFeaturesError(
+                f"Error al acceder a features: {str(e)}"
+            ) from e
+        except Exception as e:
+            logger.error(f"Error durante la predicción: {str(e)}")
+            raise
 
     def clear_cache(self):
         """

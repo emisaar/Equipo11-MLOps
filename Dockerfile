@@ -30,8 +30,9 @@ COPY pyproject.toml requirements-api.txt ./
 
 # Actualizar pip y instalar dependencias
 # Usar requirements-api.txt para builds optimizados (solo dependencias de producción)
+# Construir wheelhouse para reutilizarlo en la imagen final
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements-api.txt
+    pip wheel --wheel-dir /wheels --no-cache-dir -r requirements-api.txt
 
 # ============================================================================
 # Etapa 2: Runtime - Imagen final optimizada
@@ -54,22 +55,34 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar dependencias Python instaladas desde builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Copiar archivos de configuración necesarios para instalación
+COPY pyproject.toml requirements-api.txt ./
+
+# Copiar wheelhouse generado en el builder stage
+COPY --from=builder /wheels /wheels
+
+# Instalar dependencias desde los wheels (sin acceder a internet en esta etapa)
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir --no-index --find-links=/wheels -r requirements-api.txt && \
+    rm -rf /wheels
 
 # Copiar código fuente del proyecto
-COPY pyproject.toml requirements-api.txt ./
 COPY api ./api
 COPY src ./src
 
-# Crear directorios necesarios para monitoreo de drift
+# Crear directorios necesarios para monitoreo de drift y modelos
 RUN mkdir -p \
     /app/logs/predictions \
     /app/reports/drift_monitoring \
     /app/reports/realtime_drift_monitoring \
     /app/models \
     && chmod -R 755 /app/logs /app/reports /app/models
+
+# Copiar directorio de modelos (vacío por .dockerignore)
+COPY models/ ./models/
+
+# Copiar explícitamente modelo champion (excepción a .dockerignore)
+COPY --chown=root:root models/*champion*.pkl ./models/
 
 # Instalar proyecto en modo editable ANTES de cambiar al usuario no-root
 RUN pip install --no-cache-dir -e .

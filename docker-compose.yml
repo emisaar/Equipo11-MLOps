@@ -77,7 +77,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
 
       # MLFlow configuration
-      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}
 
       # AWS credentials para descargar modelos desde S3 vía MLFlow
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}

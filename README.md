@@ -239,7 +239,7 @@ Todos los hiperparámetros y configuraciones se gestionan en `params.yaml`:
 - **data**: Rutas de entrada/salida de datos
 - **preprocessing**: Configuración de limpieza y outliers
 - **split**: Proporción train/test y random state
-- **models.types**: Lista de modelos a entrenar
+- **models.to_train**: Lista de modelos a entrenar (usar snake_case: `random_forest`, `xgboost`, `var`, `lstm`)
 - **models.var/random_forest/xgboost/lstm**: Hiperparámetros específicos por modelo
 - **evaluation**: Configuración de evaluación y métricas
 
@@ -366,8 +366,6 @@ curl http://localhost:8000/health
 **Request:**
 ```json
 {
-  "zone": 1,
-  "model_type": "RandomForest",
   "features": {
     "temperature": 23.5,
     "humidity": 65.2,
@@ -389,9 +387,7 @@ curl http://localhost:8000/health
 **Response:**
 ```json
 {
-  "zone": 1,
-  "model_type": "RandomForest",
-  "model_path": "models/rf_zone_1_power_consumption.pkl",
+  "model_name": "powerTetouan_RF_zone_1_power_consumption",
   "prediction": 28668.46,
   "timestamp": "2025-11-07T11:02:35",
   "features_used": ["temperature", "humidity", "hora", "minuto", ...]
@@ -411,9 +407,16 @@ curl http://localhost:8000/health
 {
   "status": "healthy",
   "models_available": {
-    "VAR": [0],
-    "RandomForest": [1, 2, 3],
-    "XGBoost": [1, 2, 3]
+    "powerTetouan_RF_zone_1_power_consumption": {
+      "champion_version": "12",
+      "latest_version": "15",
+      "source": "mlflow"
+    },
+    "powerTetouan_XGB_zone_3_power_consumption": {
+      "champion_version": "local",
+      "latest_version": "local",
+      "source": "file_system"
+    }
   },
   "timestamp": "2025-01-15T14:30:00"
 }
@@ -443,8 +446,6 @@ import requests
 response = requests.post(
     "http://localhost:8000/predict",
     json={
-        "zone": 1,
-        "model_type": "RandomForest",
         "features": {
             "temperature": 23.5,
             "humidity": 65.2,
@@ -465,7 +466,7 @@ response = requests.post(
 
 result = response.json()
 print(f"Predicción: {result['prediction']:.2f} kW")
-print(f"Modelo usado: {result['model_path']}")
+print(f"Modelo usado: {result['model_name']}")
 ```
 
 ### Despliegue con Docker
@@ -577,7 +578,7 @@ El script genera:
 
 ```bash
 # Obtener estado del monitoreo
-curl "http://localhost:8000/monitoring/drift/status?zone=1&model_type=RandomForest"
+curl "http://localhost:8000/monitoring/drift/status?zone=1"
 
 # Registrar valor real observado
 curl -X POST http://localhost:8000/monitoring/actual \
@@ -589,14 +590,14 @@ curl -X POST http://localhost:8000/monitoring/actual \
   }'
 
 # Ejecutar chequeo manual de drift
-curl -X POST "http://localhost:8000/monitoring/drift/check?zone=1&model_type=RandomForest"
+curl -X POST "http://localhost:8000/monitoring/drift/check?zone=1"
 ```
 
 **Response Example:**
 ```json
 {
   "zone": 1,
-  "model_type": "RandomForest",
+  "model_type": "Champion",
   "needs_drift_check": false,
   "predictions_logged": 150,
   "actuals_logged": 145,
@@ -750,13 +751,11 @@ curl http://localhost:8000/health | jq .models_available
 curl -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d '{
-    "zone": 1,
-    "model_type": "RandomForest",
     "features": {"temperature": 23.5, "humidity": 65.2, ...}
   }'
 
 # 4. Estado del drift monitoring
-curl "http://localhost:8000/monitoring/drift/status?zone=1&model_type=RandomForest"
+curl "http://localhost:8000/monitoring/drift/status?zone=1"
 ```
 
 ## Endpoints de la API
@@ -768,12 +767,12 @@ curl "http://localhost:8000/monitoring/drift/status?zone=1&model_type=RandomFore
 
 ### Drift Monitoring (Nuevos)
 
-- **GET** `/monitoring/drift/status` - Estado actual del monitoreo de drift
-  - Query params: `zone` (int), `model_type` (str)
+- **GET** `/monitoring/drift/status` - Estado actual del monitoreo de drift del modelo champion
+  - Query params: `zone` (int)
 - **POST** `/monitoring/actual` - Registrar valor real observado
   - Body: `{"zone": int, "actual_value": float, "timestamp": str}`
-- **POST** `/monitoring/drift/check` - Ejecutar chequeo manual de drift
-  - Query params: `zone` (int), `model_type` (str)
+- **POST** `/monitoring/drift/check` - Ejecutar chequeo manual de drift del modelo champion
+  - Query params: `zone` (int)
 
 ### MLFlow
 

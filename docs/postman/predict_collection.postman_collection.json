@@ -66,7 +66,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\",\n  \"features\": {\n    \"temperature\": 23.5,\n    \"humidity\": 65.2,\n    \"wind_speed\": 5.3,\n    \"general_diffuse_flows\": 120.5,\n    \"diffuse_flows\": 80.3,\n    \"hora\": 14,\n    \"minuto\": 30,\n    \"dia_de_semana\": 2,\n    \"dia_del_ano\": 150,\n    \"lag_zone_1_power_consumption_1_hora\": 25000.0,\n    \"lag_zone_1_power_consumption_24_horas\": 26500.0,\n    \"rolling_mean_zone_1_power_consumption_1_hora\": 25200.0,\n    \"rolling_mean_zone_1_power_consumption_24_horas\": 24800.0\n  }\n}"
+              "raw": "{\n  \"features\": {\n    \"temperature\": 23.5,\n    \"humidity\": 65.2,\n    \"wind_speed\": 5.3,\n    \"general_diffuse_flows\": 120.5,\n    \"diffuse_flows\": 80.3,\n    \"hora\": 14,\n    \"minuto\": 30,\n    \"dia_de_semana\": 2,\n    \"dia_del_ano\": 150,\n    \"lag_zone_1_power_consumption_1_hora\": 25000.0,\n    \"lag_zone_1_power_consumption_24_horas\": 26500.0,\n    \"rolling_mean_zone_1_power_consumption_1_hora\": 25200.0,\n    \"rolling_mean_zone_1_power_consumption_24_horas\": 24800.0\n  }\n}"
             },
             "url": {
               "raw": "http://{{api_host}}:{{api_port}}/predict",
@@ -79,7 +79,7 @@
                 "predict"
               ]
             },
-            "description": "Invoke the prediction service with a representative feature set. Update `features` or `zone/model_type` to explore other models. This endpoint also logs predictions for drift monitoring."
+            "description": "Invoke the prediction service with a representative feature set. The API automatically selects the deployed champion model, so only the `features` payload is required. Predictions are logged for drift monitoring."
           },
           "response": [
             {
@@ -92,7 +92,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\",\n  \"model_path\": \"models/rf_zone_1_power_consumption.pkl\",\n  \"prediction\": 28668.46,\n  \"timestamp\": \"2025-11-07T11:02:35\",\n  \"features_used\": [\n    \"temperature\",\n    \"humidity\",\n    \"hora\",\n    \"minuto\",\n    \"lag_zone_1_power_consumption_1_hora\",\n    \"lag_zone_1_power_consumption_24_horas\"\n  ]\n}"
+              "body": "{\n  \"model_name\": \"powerTetouan_RF_zone_1_power_consumption\",\n  \"prediction\": 28668.46,\n  \"timestamp\": \"2025-11-07T11:02:35\",\n  \"features_used\": [\n    \"temperature\",\n    \"humidity\",\n    \"hora\",\n    \"minuto\",\n    \"lag_zone_1_power_consumption_1_hora\",\n    \"lag_zone_1_power_consumption_24_horas\"\n  ]\n}"
             }
           ]
         }
@@ -108,7 +108,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "http://{{api_host}}:{{api_port}}/monitoring/drift/status?zone=1&model_type=RandomForest",
+              "raw": "http://{{api_host}}:{{api_port}}/monitoring/drift/status?zone=1",
               "protocol": "http",
               "host": [
                 "{{api_host}}"
@@ -124,15 +124,10 @@
                   "key": "zone",
                   "value": "1",
                   "description": "Zone number (1, 2, or 3)"
-                },
-                {
-                  "key": "model_type",
-                  "value": "RandomForest",
-                  "description": "Model type (RandomForest, XGBoost, VAR)"
                 }
               ]
             },
-            "description": "Get the current status of drift monitoring for a specific zone and model type. Returns the last time a check was executed, time remaining for the next window, and a summary of the latest report (if available)."
+            "description": "Get the current status of drift monitoring for a specific zone. The API always evaluates the deployed champion model, so there's no need to select a model type. Returns the last time a check was executed, time remaining for the next window, and a summary of the latest report (if available)."
           },
           "response": [
             {
@@ -145,7 +140,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\",\n  \"needs_drift_check\": false,\n  \"last_check_time\": \"2025-01-15T12:00:00\",\n  \"next_check_in_hours\": 3.75,\n  \"latest_report_summary\": {\n    \"timestamp\": \"2025-01-15T12:00:00\",\n    \"reference_period\": \"7 days ago (24h window)\",\n    \"current_period\": \"Last 24 hours\",\n    \"total_alerts\": 2,\n    \"severity_breakdown\": {\n      \"HIGH\": 1,\n      \"MEDIUM\": 1\n    },\n    \"drift_type_breakdown\": {\n      \"feature_drift\": 1,\n      \"performance_drift\": 1\n    },\n    \"has_critical_alerts\": false,\n    \"has_high_alerts\": true,\n    \"requires_action\": true\n  }\n}"
+              "body": "{\n  \"zone\": 1,\n  \"model_type\": \"Champion\",\n  \"needs_drift_check\": false,\n  \"last_check_time\": \"2025-01-15T12:00:00\",\n  \"next_check_in_hours\": 3.75,\n  \"latest_report_summary\": {\n    \"timestamp\": \"2025-01-15T12:00:00\",\n    \"reference_period\": \"7 days ago (24h window)\",\n    \"current_period\": \"Last 24 hours\",\n    \"total_alerts\": 2,\n    \"severity_breakdown\": {\n      \"HIGH\": 1,\n      \"MEDIUM\": 1\n    },\n    \"drift_type_breakdown\": {\n      \"feature_drift\": 1,\n      \"performance_drift\": 1\n    },\n    \"has_critical_alerts\": false,\n    \"has_high_alerts\": true,\n    \"requires_action\": true\n  }\n}"
             }
           ]
         },
@@ -198,7 +193,7 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "http://{{api_host}}:{{api_port}}/monitoring/drift/check?zone=1&model_type=RandomForest",
+              "raw": "http://{{api_host}}:{{api_port}}/monitoring/drift/check?zone=1",
               "protocol": "http",
               "host": [
                 "{{api_host}}"
@@ -214,15 +209,10 @@
                   "key": "zone",
                   "value": "1",
                   "description": "Zone number (1, 2, or 3)"
-                },
-                {
-                  "key": "model_type",
-                  "value": "RandomForest",
-                  "description": "Model type (RandomForest, XGBoost, VAR)"
                 }
               ]
             },
-            "description": "Manually trigger a drift check for a specific zone and model type. This will analyze recent predictions vs baseline data to detect statistical, temporal, and performance drift."
+            "description": "Manually trigger a drift check for a specific zone. The champion model is evaluated automatically, so no model selector is needed. This call analyzes recent predictions vs baseline data to detect statistical, temporal, and performance drift."
           },
           "response": [
             {
@@ -235,7 +225,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"status\": \"success\",\n  \"message\": \"Chequeo de drift completado\",\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\",\n  \"summary\": {\n    \"timestamp\": \"2025-01-15T14:35:00\",\n    \"total_alerts\": 3,\n    \"severity_breakdown\": {\n      \"HIGH\": 1,\n      \"MEDIUM\": 2\n    },\n    \"drift_type_breakdown\": {\n      \"performance_drift\": 1,\n      \"temporal_drift\": 1\n    },\n    \"has_critical_alerts\": false,\n    \"has_high_alerts\": true,\n    \"requires_action\": true\n  },\n  \"recommendations\": [\n    \"Schedule model retraining within 24-48 hours\",\n    \"Review feature engineering pipeline for potential issues\"\n  ]\n}"
+              "body": "{\n  \"status\": \"success\",\n  \"message\": \"Chequeo de drift completado\",\n  \"zone\": 1,\n  \"model_type\": \"Champion\",\n  \"summary\": {\n    \"timestamp\": \"2025-01-15T14:35:00\",\n    \"total_alerts\": 3,\n    \"severity_breakdown\": {\n      \"HIGH\": 1,\n      \"MEDIUM\": 2\n    },\n    \"drift_type_breakdown\": {\n      \"performance_drift\": 1,\n      \"temporal_drift\": 1\n    },\n    \"has_critical_alerts\": false,\n    \"has_high_alerts\": true,\n    \"requires_action\": true\n  },\n  \"recommendations\": [\n    \"Schedule model retraining within 24-48 hours\",\n    \"Review feature engineering pipeline for potential issues\"\n  ]\n}"
             },
             {
               "name": "No drift detected",
@@ -247,7 +237,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"status\": \"success\",\n  \"message\": \"Chequeo de drift completado\",\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\",\n  \"summary\": {\n    \"timestamp\": \"2025-01-15T14:35:00\",\n    \"total_alerts\": 0,\n    \"severity_breakdown\": {},\n    \"drift_type_breakdown\": {},\n    \"has_critical_alerts\": false,\n    \"has_high_alerts\": false,\n    \"requires_action\": false\n  },\n  \"recommendations\": [\n    \"No significant drift detected - model performing as expected\"\n  ]\n}"
+              "body": "{\n  \"status\": \"success\",\n  \"message\": \"Chequeo de drift completado\",\n  \"zone\": 1,\n  \"model_type\": \"Champion\",\n  \"summary\": {\n    \"timestamp\": \"2025-01-15T14:35:00\",\n    \"total_alerts\": 0,\n    \"severity_breakdown\": {},\n    \"drift_type_breakdown\": {},\n    \"has_critical_alerts\": false,\n    \"has_high_alerts\": false,\n    \"requires_action\": false\n  },\n  \"recommendations\": [\n    \"No significant drift detected - model performing as expected\"\n  ]\n}"
             },
             {
               "name": "Insufficient data",
@@ -259,7 +249,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"status\": \"insufficient_data\",\n  \"message\": \"Datos insuficientes para ejecutar el monitoreo\",\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\"\n}"
+              "body": "{\n  \"status\": \"insufficient_data\",\n  \"message\": \"Datos insuficientes para ejecutar el monitoreo\",\n  \"zone\": 1,\n  \"model_type\": \"Champion\"\n}"
             },
             {
               "name": "Error during drift check",
@@ -271,7 +261,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"status\": \"error\",\n  \"message\": \"Error: Monitoring not initialized\",\n  \"zone\": 1,\n  \"model_type\": \"RandomForest\"\n}"
+              "body": "{\n  \"status\": \"error\",\n  \"message\": \"Error: Monitoring not initialized\",\n  \"zone\": 1,\n  \"model_type\": \"Champion\"\n}"
             }
           ]
         }

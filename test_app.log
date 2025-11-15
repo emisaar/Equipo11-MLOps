@@ -1,0 +1,3 @@
+2025-11-15 11:59:38,498 - __main__ - INFO - Configuracion cargada desde .env
+2025-11-15 11:59:38,509 - api_client - INFO - APIClient inicializado: http://localhost:8000
+2025-11-15 11:59:38,599 - api_client - ERROR - Error en health check: 503 Server Error: Service Unavailable for url: http://localhost:8000/health

@@ -1927,82 +1927,40 @@ async def log_actual_value(request: ActualValueRequest):
 
 ```python
 @app.get("/monitoring/drift/status", response_model=DriftStatusResponse)
-async def get_drift_status(zone: int, model_type: str):
-    """
-    Obtiene estado del monitoreo de drift.
-    """
-    # Verificar si necesita chequeo
-    needs_check = drift_monitor.should_check_drift(zone, model_type)
-
-    # Obtener información de último chequeo
-    key = f"{zone}_{model_type}"
-    last_check = drift_monitor.last_check.get(key)
-
-    # Calcular tiempo hasta próximo chequeo
-    if last_check:
-        next_check = last_check + drift_monitor.check_interval
-        next_check_in_hours = (next_check - datetime.now()).total_seconds() / 3600
-    else:
-        next_check_in_hours = 0
-
-    # Cargar último reporte si existe
-    report_file = Path(f"reports/drift/zone_{zone}_{model_type}_latest.json")
-    latest_report = None
-    if report_file.exists():
-        with open(report_file) as f:
-            latest_report = json.load(f)
-
-    return DriftStatusResponse(
+async def get_drift_status(zone: int):
+    """Obtiene estado del monitoreo de drift del modelo champion."""
+    status_payload = drift_monitor.get_drift_status(
         zone=zone,
-        model_type=model_type,
-        needs_drift_check=needs_check,
-        last_check_time=last_check.isoformat() if last_check else None,
-        next_check_in_hours=max(0, next_check_in_hours),
-        latest_report_summary=latest_report
+        model_type="Champion"
     )
+    status_payload["model_type"] = "Champion"
+    return DriftStatusResponse(**status_payload)
 ```
 
 #### 8.3.4 POST /monitoring/drift/check
 
 ```python
 @app.post("/monitoring/drift/check", response_model=DriftCheckResponse)
-async def manual_drift_check(zone: int, model_type: str):
-    """
-    Ejecuta chequeo manual de drift (no espera al intervalo automático).
-    """
-    try:
-        # Ejecutar chequeo
-        report = drift_monitor.check_drift(zone, model_type)
-
-        if report is None:
-            return DriftCheckResponse(
-                status="insufficient_data",
-                message="Datos insuficientes para chequeo de drift",
-                zone=zone,
-                model_type=model_type
-            )
-
-        # Obtener resumen
-        summary = report.get_summary()
-        recommendations = report.get_recommendations()
-
+async def manual_drift_check(zone: int):
+    """Ejecuta chequeo manual de drift usando el modelo champion."""
+    report = drift_monitor.check_drift(zone, model_type="Champion")
+    if report is None:
         return DriftCheckResponse(
-            status="success",
-            message="Chequeo de drift completado",
+            status="insufficient_data",
+            message="Datos insuficientes para chequeo de drift",
             zone=zone,
-            model_type=model_type,
-            summary=summary,
-            recommendations=recommendations
+            model_type="Champion"
         )
-
-    except Exception as e:
-        logger.error(f"Error en drift check: {str(e)}")
-        return DriftCheckResponse(
-            status="error",
-            message=f"Error: {str(e)}",
-            zone=zone,
-            model_type=model_type
-        )
+    summary = report.get_summary()
+    recommendations = report.get_recommendations()
+    return DriftCheckResponse(
+        status="success",
+        message="Chequeo de drift completado",
+        zone=zone,
+        model_type="Champion",
+        summary=summary,
+        recommendations=recommendations
+    )
 ```
 
 ### 8.4 Workflow de Monitoreo en Producción
@@ -2012,7 +1970,7 @@ async def manual_drift_check(zone: int, model_type: str):
 │ 1. PREDICCIÓN                                           │
 │    POST /predict                                        │
 │    → Auto-logging de features + predicción              │
-│    → Archivo: logs/predictions/zone_1_RandomForest.jsonl│
+│    → Archivo: logs/predictions/zone_1_Champion.jsonl    │
 └──────────────────┬──────────────────────────────────────┘
                    ▼
 ┌─────────────────────────────────────────────────────────┐
@@ -2505,8 +2463,6 @@ for i in range(100):
     response = requests.post(
         f"{API_URL}/predict",
         json={
-            "zone": 1,
-            "model_type": "RandomForest",
             "features": {
                 "temperature": 23.5 + np.random.randn(),
                 "humidity": 65.0 + np.random.randn() * 5,
@@ -2532,10 +2488,10 @@ for i in range(100):
         }
     )
 
-# 2. Verificar estado de drift
+# 2. Verificar estado de drift (el modelo champion se usa automáticamente)
 response = requests.get(
     f"{API_URL}/monitoring/drift/status",
-    params={"zone": 1, "model_type": "RandomForest"}
+    params={"zone": 1}
 )
 
 status = response.json()
@@ -2550,7 +2506,7 @@ if status['latest_report_summary']:
 if status['needs_drift_check']:
     response = requests.post(
         f"{API_URL}/monitoring/drift/check",
-        params={"zone": 1, "model_type": "RandomForest"}
+        params={"zone": 1}
     )
 
     result = response.json()

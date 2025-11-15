@@ -70,7 +70,15 @@ fi
 # Build de la imagen
 echo -e "${GREEN}Building Docker image...${NC}"
 
+# Determinar si usar --no-cache
+NO_CACHE_FLAG=""
+if [ "${DOCKER_BUILD_NO_CACHE}" = "true" ]; then
+    echo -e "${YELLOW}Building without cache (model champion update)${NC}"
+    NO_CACHE_FLAG="--no-cache"
+fi
+
 docker build \
+    ${NO_CACHE_FLAG} \
     --build-arg BUILD_DATE="${BUILD_DATE}" \
     --build-arg VERSION="${VERSION}" \
     --build-arg GIT_COMMIT="${GIT_COMMIT}" \

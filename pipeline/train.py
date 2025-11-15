@@ -11,8 +11,56 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'  # Fix for macOS mutex issues
 
 from pathlib import Path
+from typing import List
 import yaml
 from src.modeling.train import ModelTrainer
+
+
+MODEL_ALIAS_MAP = {
+    "var": "VAR",
+    "random_forest": "RandomForest",
+    "randomforest": "RandomForest",
+    "xgboost": "XGBoost",
+    "lstm": "LSTM",
+}
+
+DEFAULT_MODEL_SELECTION = ["random_forest"]
+
+
+def resolve_model_types(model_section: dict) -> List[str]:
+    """
+    Normaliza los nombres de modelos definidos en params.yaml.
+
+    Se aceptan alias en snake_case (p.ej. random_forest) y se
+    convierten a los nombres esperados por ModelTrainer.
+    """
+    raw_selection = model_section.get("to_train") or model_section.get("types")
+
+    if raw_selection is None:
+        raw_selection = DEFAULT_MODEL_SELECTION
+
+    if isinstance(raw_selection, str):
+        raw_selection = [raw_selection]
+
+    normalized = []
+    for item in raw_selection:
+        if item is None:
+            continue
+
+        normalized_key = str(item).strip().lower().replace("-", "_")
+        mapped_name = MODEL_ALIAS_MAP.get(normalized_key)
+
+        if mapped_name:
+            normalized.append(mapped_name)
+        else:
+            # Mantener el valor original para no bloquear ejecuciones previas
+            print(f"[WARN] Modelo '{item}' no reconocido, se usará tal cual.")
+            normalized.append(str(item))
+
+    if not normalized:
+        normalized = [MODEL_ALIAS_MAP["random_forest"]]
+
+    return normalized
 
 
 if __name__ == "__main__":
@@ -37,13 +85,16 @@ if __name__ == "__main__":
     if "lstm" in params["models"]:
         LSTM_CONFIG.update(params["models"]["lstm"])
 
+    # Determina qué modelos entrenar según params.yaml
+    selected_model_types = resolve_model_types(params["models"])
+    print(f"Modelos seleccionados desde params.yaml: {', '.join(selected_model_types)}")
+    print(f"Creando ModelTrainer para {len(selected_model_types)} tipos de modelos...")
+
     # Ejecuta entrenamiento
-    print(f"Creando ModelTrainer para {len(params['models']['types'])} tipos de modelos...")
-    print(f"Modelos a entrenar: {', '.join(params['models']['types'])}")
     trainer = ModelTrainer(
         train_path=Path(params["data"]["train"]),
         models_output_dir=Path(params["models"]["output_dir"]),
-        model_types=params["models"]["types"],
+        model_types=selected_model_types,
     )
 
     trained_models = trainer.run()

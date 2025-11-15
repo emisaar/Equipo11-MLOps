@@ -5,6 +5,12 @@
 # ============================================================================
 
 set -e
+# Cargar variables de entorno del proyecto si existen
+if [ -f ".env" ]; then
+    set -a
+    . .env
+    set +a
+fi
 
 # Colores
 RED='\033[0;31m'
@@ -18,6 +24,7 @@ NC='\033[0m' # No Color
 IMAGE_NAME="power-tetouan-api"
 VERSION="${VERSION:-2.0.0}"
 PORT="${PORT:-8000}"
+DOCKER_CHECK_TIMEOUT="${DOCKER_CHECK_TIMEOUT:-20}"
 
 echo ""
 echo -e "${CYAN}============================================================================${NC}"
@@ -28,6 +35,33 @@ echo ""
 # ============================================================================
 # FASE 1: VERIFICACIONES
 # ============================================================================
+
+check_docker_daemon() {
+    local tmp_log
+    tmp_log=$(mktemp -t docker-info-check.XXXXXX)
+
+    docker info >"$tmp_log" 2>&1 &
+    local info_pid=$!
+    local elapsed=0
+
+    while kill -0 "${info_pid}" 2>/dev/null; do
+        if [ "${elapsed}" -ge "${DOCKER_CHECK_TIMEOUT}" ]; then
+            kill -TERM "${info_pid}" 2>/dev/null || true
+            wait "${info_pid}" 2>/dev/null || true
+            echo "Docker info output (last attempt):"
+            cat "$tmp_log"
+            rm -f "$tmp_log"
+            return 2
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+
+    local result=0
+    wait "${info_pid}" >/dev/null 2>&1 || result=$?
+    rm -f "$tmp_log"
+    return $result
+}
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BLUE}  FASE 1: VERIFICACIONES${NC}"
@@ -47,15 +81,27 @@ echo ""
 
 # Verificar Docker daemon
 echo -e "${BLUE}[2/3] Verificando Docker daemon...${NC}"
-if ! docker info &> /dev/null; then
-    echo -e "${RED}✗ Docker daemon no está corriendo${NC}"
-    echo "  Inicia Docker Desktop o ejecuta: sudo systemctl start docker"
+if ! check_docker_daemon; then
+    echo -e "${RED}✗ Docker daemon no respondió en ${DOCKER_CHECK_TIMEOUT}s${NC}"
+    echo "  Revisa que Docker Desktop esté iniciado o ejecuta: sudo systemctl start docker"
+    echo "  También puedes validar manualmente con: docker info"
+    if [ -n "${DOCKER_CONTEXT:-}" ]; then
+        echo "  Contexto actual: ${DOCKER_CONTEXT}"
+    fi
     exit 1
 fi
 echo -e "${GREEN}✓ Docker daemon corriendo${NC}"
 echo ""
 
+# ============================================================================
+# FASE 2: AUTENTICACIÓN
+# ============================================================================
+
 # Verificar autenticación
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}  FASE 2: AUTENTICACIÓN EN DOCKER HUB${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
 echo -e "${BLUE}[3/3] Verificando autenticación en Docker Hub...${NC}"
 if docker info 2>/dev/null | grep -q "Username:"; then
     USERNAME=$(docker info 2>/dev/null | grep "Username:" | awk '{print $2}')
@@ -63,52 +109,39 @@ if docker info 2>/dev/null | grep -q "Username:"; then
     LOGGED_IN=true
 else
     echo -e "${YELLOW}! No estás autenticado${NC}"
-    LOGGED_IN=false
+    if [ -n "${DOCKER_USERNAME:-}" ] && [ -n "${DOCKER_PASSWORD:-}" ]; then
+        echo -e "${BLUE}Intentando login automático en Docker Hub...${NC}"
+        if echo "${DOCKER_PASSWORD}" | docker login --username "${DOCKER_USERNAME}" --password-stdin >/dev/null; then
+            echo -e "${GREEN}Login automático exitoso con ${DOCKER_USERNAME}${NC}"
+            LOGGED_USER="${DOCKER_USERNAME}"
+            LOGGED_IN=true
+        else
+            echo -e "${YELLOW}Login automático falló${NC}"
+            LOGGED_IN=false
+        fi
+    fi    
 fi
 echo ""
 
-# ============================================================================
-# FASE 2: AUTENTICACIÓN
-# ============================================================================
-
-if [ "$LOGGED_IN" = false ]; then
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${BLUE}  FASE 2: AUTENTICACIÓN EN DOCKER HUB${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+if [ -z "$LOGGED_USER" ]; then
+    echo -e "${RED}Error: No estás logueado en Docker Hub${NC}"
     echo ""
-
-    echo -e "${YELLOW}Es necesario autenticarte en Docker Hub${NC}"
+    echo -e "${YELLOW}Pasos para configurar Docker Hub:${NC}"
     echo ""
-    echo "¿Tienes una cuenta en Docker Hub? (s/n)"
-    read -r HAS_ACCOUNT
-
-    if [[ "$HAS_ACCOUNT" == "n" || "$HAS_ACCOUNT" == "N" ]]; then
-        echo ""
-        echo -e "${YELLOW}Pasos para crear cuenta:${NC}"
-        echo "  1. Ve a: ${CYAN}https://hub.docker.com/signup${NC}"
-        echo "  2. Completa el formulario de registro"
-        echo "  3. Verifica tu email"
-        echo "  4. Vuelve aquí y ejecuta este script nuevamente"
-        echo ""
-        exit 0
-    fi
-
+    echo '1. Crear cuenta en Docker Hub (si no tienes una):'
+    echo "   https://hub.docker.com/signup"
     echo ""
-    echo -e "${BLUE}Ejecutando docker login...${NC}"
+    echo "2. Login desde terminal:"
+    echo "   ${GREEN}docker login${NC}"
     echo ""
-
-    if docker login; then
-        echo ""
-        echo -e "${GREEN}✓ Login exitoso${NC}"
-        USERNAME=$(docker info 2>/dev/null | grep "Username:" | awk '{print $2}')
-        echo -e "${GREEN}Autenticado como: ${USERNAME}${NC}"
-        LOGGED_IN=true
-    else
-        echo ""
-        echo -e "${RED}✗ Login falló${NC}"
-        exit 1
-    fi
+    echo "3. Ingresar tu username y password cuando se solicite"
     echo ""
+    echo "4. Ejecutar este script nuevamente"
+    echo ""
+    echo -e "${YELLOW}Nota: El repositorio se creará automáticamente en Docker Hub${NC}"
+    echo "      al hacer el primer push como: \$DOCKER_REGISTRY/${IMAGE_NAME}"
+    echo ""
+    exit 1
 fi
 
 # Configurar DOCKER_REGISTRY con el usuario logueado

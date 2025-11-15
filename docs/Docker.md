@@ -425,7 +425,7 @@ Con docker-compose activo:
 - **API Swagger**: http://localhost:8000/docs
 - **API Health**: http://localhost:8000/health
 - **MLFlow UI**: http://localhost:5001
-- **Drift Status**: http://localhost:8000/monitoring/drift/status?zone=1&model_type=RandomForest
+- **Drift Status**: http://localhost:8000/monitoring/drift/status?zone=1
 
 ---
 

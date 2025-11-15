@@ -113,6 +113,8 @@ Jenkinsfile
 models/*.pkl
 models/*.h5
 models/*.joblib
+# EXCEPCION: Incluir modelo champion en la imagen Docker
+!models/*champion*.pkl
 !models/.gitkeep
 
 # Cache
