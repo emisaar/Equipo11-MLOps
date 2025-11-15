@@ -69,4 +69,5 @@ data/processed/
 .idea/
 *.pyc
 *.pyo
+*.claude/
 
