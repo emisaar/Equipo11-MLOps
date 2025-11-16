@@ -516,22 +516,32 @@ docker compose down
 
 ### Pruebas automatizadas
 
-Las pruebas nuevas viven en `tests/` y aseguran tanto utilidades de preprocesamiento como el recorrido completo.
+El proyecto incluye 54 tests automatizados que aseguran la calidad del codigo en todos los componentes.
 
 **Tests disponibles:**
-- `tests/test_preprocessing.py` - Normalización de nombres, medias móviles, outliers
-- `tests/test_integration_pipeline.py` - Pipeline completo de LoadData a evaluación
-- `tests/test_monitoring.py` - Sistema de drift monitoring (20 tests)
+- `tests/test_api.py` (20 tests) - Endpoints de FastAPI (health, predict, monitoring)
+- `tests/test_monitoring.py` (18 tests) - Sistema de drift monitoring
+- `tests/test_preprocessing.py` (6 tests) - Normalizacion, medias moviles, outliers
+- `tests/test_data.py` (3 tests) - Carga de datos y deteccion de headers
+- `tests/test_modeling_evaluate.py` (2 tests) - Calculo de metricas
+- `tests/test_modeling_predict.py` (2 tests) - Prediccion de modelos
+- `tests/test_tracking.py` (2 tests) - MLflow tracking
+- `tests/test_integration_pipeline.py` (1 test) - Pipeline extremo a extremo
+- `tests/test_features.py` (1 test) - Feature engineering
 
 Ejecuta todos los tests:
 
 ```bash
 pytest -q
+# Resultado esperado: 54 passed in 4.45s
 ```
 
-O tests específicos:
+O tests especificos:
 
 ```bash
+# Tests de API FastAPI
+pytest tests/test_api.py -v
+
 # Tests de monitoreo de drift
 pytest tests/test_monitoring.py -v
 
@@ -765,6 +775,69 @@ curl "http://localhost:8000/monitoring/drift/status?zone=1"
 - **POST** `/predict` - Realizar predicción de consumo eléctrico
 - **GET** `/health` - Health check y modelos disponibles
 
+### Esquema de predicción (FastAPI / OpenAPI / Postman)
+
+Los modelos Pydantic viven en `api/schemas.py` y son exactamente los que FastAPI publica en Swagger (`/docs`) y en el JSON de OpenAPI (`/openapi.json`, importable desde Postman con *Import → Raw text*). A modo de referencia rápida:
+
+#### `POST /predict` → `PredictionRequest`
+
+- **features** (`object`, requerido): Diccionario `str → float` con todas las variables que consume el modelo champion (temporales: `hour`, `dayofweek`, `month`; meteorológicas: `temperature`, `humidity`, `wind_speed`; rezagos/rolling como `lag_zone_1_power_consumption_1_hora`).
+- **Validación**: El diccionario no puede estar vacío; FastAPI devolverá `422 ValidationError` si falta, y cualquier clave desconocida se ignora pero queda registrada en logs.
+- **Ejemplo JSON**:
+
+```json
+{
+  "features": {
+    "temperature": 23.5,
+    "humidity": 65.2,
+    "wind_speed": 5.3,
+    "general_diffuse_flows": 120.5,
+    "diffuse_flows": 80.3,
+    "hora": 14,
+    "dia_de_semana": 2,
+    "lag_zone_1_power_consumption_1_hora": 25000.0,
+    "rolling_mean_zone_1_power_consumption_24_horas": 24800.0
+  }
+}
+```
+
+#### Respuesta exitosa → `PredictionResponse`
+
+- **model_name** (`string`): Nombre del modelo champion cargado (coincide con los archivos `models/*_version_XX_champion.pkl`).
+- **prediction** (`number`): Consumo estimado en kW.
+- **timestamp** (`string`, ISO 8601): Instante en que se ejecuta la inferencia.
+- **features_used** (`array[string]`): Lista exacta de features aplicadas por el pipeline para auditar requests de Postman/Swagger.
+
+```json
+{
+  "model_name": "powerTetouan_RF_zone_1_version_02_champion",
+  "prediction": 25432.18,
+  "timestamp": "2025-01-15T14:30:00",
+  "features_used": [
+    "temperature",
+    "humidity",
+    "wind_speed",
+    "hour",
+    "dayofweek",
+    "zone_1_power_consumption_lag6"
+  ]
+}
+```
+
+#### Respuesta de error → `ErrorResponse`
+
+- **error** (`string`): Código (`ValidationError`, `ModelNotLoaded`, etc.).
+- **message** (`string`): Descripción legible.
+- **detail** (`object|string`, opcional): Datos adicionales cuando FastAPI rechaza el payload.
+
+#### Otros esquemas publicados
+
+- `ActualValueRequest` / `ActualValueResponse`: Para `/monitoring/actual`, cuerpo `{"zone": 1, "actual_value": 25432.1, "timestamp": "..."}`.
+- `DriftStatusResponse` y `DriftCheckResponse`: Devueltos por los endpoints de monitoreo con resumen de métricas y recomendaciones.
+
+> Desde Postman basta con descargar `http://localhost:8000/openapi.json` y cargarlo como colección para ver automáticamente estos esquemas.
+> Antes de enviar requests desde la colección provista en `docs/postman/`, actualiza la variable de entorno `champion_zone` del archivo `local_environment.postman_environment.json` con la zona que reporte `/health` para el modelo champion vigente.
+
 ### Drift Monitoring (Nuevos)
 
 - **GET** `/monitoring/drift/status` - Estado actual del monitoreo de drift del modelo champion
@@ -777,6 +850,8 @@ curl "http://localhost:8000/monitoring/drift/status?zone=1"
 ### MLFlow
 
 - **MLFlow UI**: http://localhost:5001 - Tracking de experimentos y modelos
+- Los artefactos se guardan en `./mlruns` (volumen local compartido con el contenedor) para mantener todo en la misma base SQLite.
+- El modelo champion se copia automáticamente en `models/*champion*.pkl`.
 
 ### Documentación Detallada
 

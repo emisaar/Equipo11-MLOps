@@ -32,8 +32,8 @@ stages:
     outs:
     - path: data/interim/loaded.parquet
       hash: md5
-      md5: 2e946a145a8e01ec45dddd0818bbc2aa
-      size: 2047043
+      md5: 809da39b675c124f1ec314676c35fcdc
+      size: 2047191
   explore_data:
     cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/02_explore_data.py
     deps:
@@ -64,8 +64,8 @@ stages:
     deps:
     - path: data/processed/cleaned.parquet
       hash: md5
-      md5: ac91426b6e3e8562b0d66e5d7f282e3f
-      size: 2023515
+      md5: fe901f05d580dc45014d7b566353c3e2
+      size: 2023603
     - path: pipeline/preprocess.py
       hash: md5
       md5: af48c83898b1212ba0fbc5b86ec2e09b
@@ -98,12 +98,12 @@ stages:
     outs:
     - path: data/processed/test.parquet
       hash: md5
-      md5: c1e3a32132dbe90934092d65c7a9f06a
-      size: 885593
+      md5: adbe5efb6afdd4e8359e6ae270bcf01e
+      size: 885741
     - path: data/processed/train.parquet
       hash: md5
-      md5: 1d2ea4f29fbba5025fd00a8632f783a3
-      size: 2092425
+      md5: b7477be76f6ab7fd7060b8dbe3bf8268
+      size: 2092573
   train_model:
     cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/04_train_model.py
     deps:
@@ -180,8 +180,8 @@ stages:
     deps:
     - path: data/interim/loaded.parquet
       hash: md5
-      md5: 2e946a145a8e01ec45dddd0818bbc2aa
-      size: 2047043
+      md5: 809da39b675c124f1ec314676c35fcdc
+      size: 2047191
     - path: pipeline/clean_data.py
       hash: md5
       md5: cc9a8bab4f9bdad094c29017bcd6da0c
@@ -214,15 +214,15 @@ stages:
     outs:
     - path: data/processed/cleaned.parquet
       hash: md5
-      md5: ac91426b6e3e8562b0d66e5d7f282e3f
-      size: 2023515
+      md5: fe901f05d580dc45014d7b566353c3e2
+      size: 2023603
   train_models:
     cmd: python pipeline/train.py
     deps:
     - path: data/processed/train.parquet
       hash: md5
-      md5: 1d2ea4f29fbba5025fd00a8632f783a3
-      size: 2092425
+      md5: b7477be76f6ab7fd7060b8dbe3bf8268
+      size: 2092573
     - path: pipeline/train.py
       hash: md5
       md5: e8bfe89db8bacd51b8b27ad0f937e71c
@@ -332,25 +332,25 @@ stages:
     outs:
     - path: models
       hash: md5
-      md5: 75d3f0671b7c7ae5947d5fa81f7f23b9.dir
-      size: 314814666
+      md5: 6911e9f03f641c8ebb448387351e5a6a.dir
+      size: 314815242
       nfiles: 3
   evaluate_models:
     cmd: python pipeline/evaluate.py
     deps:
     - path: data/processed/test.parquet
       hash: md5
-      md5: c1e3a32132dbe90934092d65c7a9f06a
-      size: 885593
+      md5: adbe5efb6afdd4e8359e6ae270bcf01e
+      size: 885741
     - path: data/processed/train.parquet
       hash: md5
-      md5: 1d2ea4f29fbba5025fd00a8632f783a3
-      size: 2092425
+      md5: b7477be76f6ab7fd7060b8dbe3bf8268
+      size: 2092573
     - path: models
       hash: md5
-      md5: 75d3f0671b7c7ae5947d5fa81f7f23b9.dir
-      size: 314814666
-      nfiles: 3
+      md5: ddd7878eb3558beb2e23bd08bc9488e7.dir
+      size: 418822733
+      nfiles: 4
     - path: pipeline/evaluate.py
       hash: md5
       md5: 66e4d51070f677dcc89d4130bdc6d9b3
@@ -378,29 +378,29 @@ stages:
     outs:
     - path: metrics/metrics.json
       hash: md5
-      md5: 731d32de5ddd9bcd57c8d1a33d9e26fd
-      size: 485
+      md5: cdb2de90f3048bb0f947d1a857317d75
+      size: 484
     - path: reports/figures
       hash: md5
-      md5: be2d1de8eec1e175e41c8286687d2423.dir
-      size: 318089
+      md5: 71ca405c55d024cc04b6f3bde4caa15b.dir
+      size: 347094
       nfiles: 3
   deploy_champion:
     cmd: python pipeline/deploy.py
     deps:
     - path: metrics/metrics.json
       hash: md5
-      md5: d3cefd6daed9cd52d7e1c68444805663
-      size: 482
+      md5: cdb2de90f3048bb0f947d1a857317d75
+      size: 484
     - path: models
       hash: md5
-      md5: 121df967c552b1d7b973a2a0c7d4b662.dir
-      size: 315405859
+      md5: ddd7878eb3558beb2e23bd08bc9488e7.dir
+      size: 418822733
       nfiles: 4
     - path: pipeline/deploy.py
       hash: md5
-      md5: 0e4492befd436a06e72ad4285aaa0867
-      size: 6957
+      md5: 7adad7ba19f8849f333706eba4b2c885
+      size: 10538
     - path: scripts/setup-docker-hub.sh
       hash: md5
       md5: 9858463ff4d6c1528493e1570e3fd22b

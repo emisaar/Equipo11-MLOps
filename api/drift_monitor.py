@@ -15,6 +15,7 @@ RealTimeDriftMonitor
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -30,6 +31,8 @@ from src.monitoring import (
     ConsoleAlertChannel,
     FileAlertChannel,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PredictionLogger:
@@ -280,11 +283,15 @@ class RealTimeDriftMonitor:
         self.check_interval_hours = check_interval_hours
         self.last_check_time: Optional[datetime] = None
 
+        # Create output directory if it doesn't exist
+        self.output_dir = Path("reports/realtime_drift_monitoring")
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
         # Initialize monitoring pipeline
         self.pipeline = DriftMonitoringPipeline(
-            output_dir=Path("reports/realtime_drift_monitoring"),
+            output_dir=self.output_dir,
             enable_statistical=True,
-            enable_timeseries=False,  # Disable for real-time due to data size
+            enable_timeseries=True,  # Enable for comprehensive drift detection
             enable_performance=True,
         )
 
@@ -393,15 +400,15 @@ class RealTimeDriftMonitor:
         needs_check = self.should_check_drift()
 
         # Get latest report if exists
-        report_file = Path("reports/realtime_drift_monitoring/drift_monitoring_report.json")
+        report_file = self.output_dir / "drift_monitoring_report.json"
         latest_report = None
 
         if report_file.exists():
             try:
                 report_data = json.loads(report_file.read_text())
                 latest_report = report_data.get("summary")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Error loading drift report: {e}")
 
         return {
             "zone": zone,

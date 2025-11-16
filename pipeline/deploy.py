@@ -103,6 +103,97 @@ def copy_champion_model(models_dir: Path) -> bool:
     return True
 
 
+def sync_to_s3() -> bool:
+    """
+    Sincroniza modelo champion y mlruns a S3.
+
+    Returns
+    -------
+    bool
+        True si la sincronización fue exitosa, False en caso contrario
+    """
+    print("\n" + "="*80)
+    print("SINCRONIZANDO ARTEFACTOS A S3")
+    print("="*80)
+
+    # Verificar variables de entorno de AWS
+    aws_key = os.getenv("AWS_ACCESS_KEY_ID")
+    aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
+    aws_region = os.getenv("AWS_DEFAULT_REGION", "us-east-2")
+
+    if not aws_key or not aws_secret:
+        print("[WARN] Credenciales AWS no configuradas")
+        print("  Define AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY en .env")
+        print("  Saltando sincronización a S3...")
+        return True  # No fallar, solo advertir
+
+    # Bucket S3 (puedes configurarlo en .env si es necesario)
+    s3_bucket = os.getenv("S3_BUCKET_NAME", "mlops-tetouan-models")
+    s3_prefix = os.getenv("S3_PREFIX", "power-tetouan")
+
+    try:
+        # Sincronizar modelo champion
+        print("\n[INFO] Sincronizando modelo champion a S3...")
+        models_dir = Path("models")
+        champion_files = list(models_dir.glob("*_champion.pkl"))
+
+        if champion_files:
+            for champion_file in champion_files:
+                s3_key = f"{s3_prefix}/models/{champion_file.name}"
+                cmd = [
+                    "aws", "s3", "cp",
+                    str(champion_file),
+                    f"s3://{s3_bucket}/{s3_key}",
+                    "--region", aws_region
+                ]
+
+                print(f"  Subiendo {champion_file.name} a s3://{s3_bucket}/{s3_key}")
+                result = subprocess.run(cmd, capture_output=True, text=True)
+
+                if result.returncode == 0:
+                    print(f"  [OK] {champion_file.name} subido exitosamente")
+                else:
+                    print(f"  [ERROR] Error al subir {champion_file.name}: {result.stderr}")
+        else:
+            print("  [WARN] No se encontraron modelos champion para subir")
+
+        # Sincronizar mlruns
+        print("\n[INFO] Sincronizando mlruns a S3...")
+        mlruns_dir = Path("mlruns")
+
+        if mlruns_dir.exists():
+            cmd = [
+                "aws", "s3", "sync",
+                str(mlruns_dir),
+                f"s3://{s3_bucket}/{s3_prefix}/mlruns/",
+                "--region", aws_region,
+                "--exclude", "*.git/*",
+                "--exclude", "__pycache__/*"
+            ]
+
+            print(f"  Sincronizando {mlruns_dir} a s3://{s3_bucket}/{s3_prefix}/mlruns/")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+
+            if result.returncode == 0:
+                print(f"  [OK] mlruns sincronizado exitosamente")
+            else:
+                print(f"  [ERROR] Error al sincronizar mlruns: {result.stderr}")
+        else:
+            print("  [WARN] Directorio mlruns no encontrado")
+
+        print("\n[OK] Sincronización a S3 completada")
+        return True
+
+    except FileNotFoundError:
+        print("[ERROR] AWS CLI no está instalado")
+        print("  Instala AWS CLI: pip install awscli")
+        print("  o descarga desde: https://aws.amazon.com/cli/")
+        return False
+    except Exception as e:
+        print(f"[ERROR] Error durante la sincronización a S3: {e}")
+        return False
+
+
 def deploy_docker_image() -> bool:
     """
     Ejecuta el script de despliegue de Docker.
@@ -186,7 +277,10 @@ if __name__ == "__main__":
         print("\n[ERROR] Error al copiar el modelo champion")
         sys.exit(1)
 
-    # Paso 2: Desplegar imagen Docker
+    # Paso 2: Sincronizar a S3
+    sync_to_s3()
+
+    # Paso 3: Desplegar imagen Docker
     if not deploy_docker_image():
         print("\n[ERROR] Error al desplegar la imagen Docker")
         print("  Puedes desplegar manualmente ejecutando:")
@@ -199,7 +293,9 @@ if __name__ == "__main__":
     print("="*80)
     print("\n[OK] El modelo champion ha sido desplegado exitosamente")
     print("  - Modelo copiado al directorio models/")
+    print("  - Modelo y mlruns sincronizados a S3")
     print("  - Imagen Docker actualizada (si bash esta disponible)")
     print("\nPara verificar el despliegue:")
     print("  docker images | grep power-tetouan-api")
+    print("  aws s3 ls s3://mlops-tetouan-models/power-tetouan/models/")
     print("\n")

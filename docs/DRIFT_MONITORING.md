@@ -3,8 +3,8 @@
 ## Documentación Técnica Completa
 
 **Proyecto:** Predicción de Consumo Eléctrico - Tetouan City
-**Versión:** 2.0.0
-**Fecha:** Enero 2025
+**Versión:** 1.0.0
+**Fecha:** Noviembre 2025
 **Equipo:** Equipo11 MLOps
 
 ---

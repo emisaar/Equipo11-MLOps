@@ -3,7 +3,7 @@
 # ===========================================================================
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict
 
 from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,6 +41,32 @@ logger = logging.getLogger(__name__)
 # Variable global para el predictor y nombre estandar del modelo champion
 predictor: Optional[ModelPredictor] = None
 CHAMPION_MODEL_TYPE = "Champion"
+
+
+def _infer_zone_from_request(model_name: Optional[str], features: Dict[str, float]) -> int:
+    """
+    Determina la zona asociada a una predicción sin depender de valores hardcodeados.
+
+    Intenta primero extraerla del nombre del modelo (powerTetouan_*_zone_X_*). Si no
+    existe, infiere la zona a partir de las features enviadas (ej: lag_zone_2_*).
+    """
+    model_name = (model_name or "").lower()
+    zone_tokens = (1, 2, 3)
+
+    for zone in zone_tokens:
+        if f"zone_{zone}" in model_name:
+            return zone
+
+    zone_votes = {zone: 0 for zone in zone_tokens}
+    for feature_name in features.keys():
+        feature_name = feature_name.lower()
+        for zone in zone_tokens:
+            if f"zone_{zone}" in feature_name:
+                zone_votes[zone] += 1
+
+    # Elegir la zona con mayor presencia en las features o default a zona 1
+    zone_with_votes = max(zone_votes.items(), key=lambda item: item[1])
+    return zone_with_votes[0] if zone_with_votes[1] > 0 else 1
 
 def ensure_predictor_ready() -> ModelPredictor:
     """Garantiza que el predictor de MLflow esté inicializado antes de usarlo."""
@@ -176,7 +202,13 @@ async def health_check():
     try:
         # Intentar obtener modelos disponibles
         try:
-            models_available = predictor.get_available_models()
+            models_dict = predictor.get_available_models()
+            # Convertir dict plano a ModelAvailability objects para validación Pydantic
+            from api.schemas import ModelAvailability
+            models_available = {
+                model_name: ModelAvailability(**model_info)
+                for model_name, model_info in models_dict.items()
+            }
         except Exception as e:
             logger.warning(f"No se pudo listar modelos: {e}")
             models_available = {}
@@ -286,15 +318,8 @@ async def predict(request: PredictionRequest):
         # (nota: el monitoreo ahora no tiene zona/model_type específicos)
         try:
             prediction_logger = get_prediction_logger()
-            # Extraer zona del nombre del modelo si es posible
-            model_name = result.get('model_name', '')
-            zone = 1  # Default
-            if 'zone_1' in model_name:
-                zone = 1
-            elif 'zone_2' in model_name:
-                zone = 2
-            elif 'zone_3' in model_name:
-                zone = 3
+            model_name = result.get('model_name')
+            zone = _infer_zone_from_request(model_name, request.features)
 
             prediction_logger.log_prediction(
                 zone=zone,

@@ -2,8 +2,8 @@
 
 Documentacion completa para contenerizar, construir, ejecutar y publicar la API de prediccion de consumo electrico de Tetouan City con sistema de monitoreo de data drift.
 
-**Version**: 2.0.0
-**Actualizado**: Enero 2025
+**Version**: 1.0.0
+**Actualizado**: Noviembre 2025
 **Mantenido por**: Equipo11 MLOps
 
 ---
@@ -96,17 +96,6 @@ docker --version
 docker compose version
 ```
 
-### Credenciales AWS
-
-Necesarias para descargar modelos desde S3 via MLFlow:
-
-```bash
-# Configurar en archivo .env
-AWS_ACCESS_KEY_ID=your_key_here
-AWS_SECRET_ACCESS_KEY=your_secret_here
-AWS_DEFAULT_REGION=us-east-2
-```
-
 ---
 
 ## Arquitectura del Contenedor
@@ -139,8 +128,7 @@ Etapa 2: Runtime (python:3.11-slim)
 - **Pydantic** - Validacion de datos y schemas
 - **Scikit-learn, XGBoost, Statsmodels** - Librerias de Machine Learning
 - **Sistema de monitoreo de drift** - Implementacion OOP personalizada
-- **MLFlow client** - Para descargar modelos desde S3
-- **Boto3** - Cliente AWS para acceso a S3
+- **MLFlow client** - Registro y versionado local de modelos
 
 ### Seguridad
 
@@ -324,7 +312,7 @@ Docker Compose orquesta dos servicios principales:
 1. **MLFlow Server** (puerto 5001)
    - Tracking server para modelos ML
    - Backend: SQLite local
-   - Artifacts: S3 (itesm-mna bucket)
+   - Artifacts: almacenamiento local `/mlflow/artifacts`
    - Healthcheck automatico
 
 2. **API Service** (puerto 8000)
@@ -686,7 +674,7 @@ docker exec power-tetouan-api ls -lh /app/reports/drift_monitoring/
 
 #### 3. model_cache
 
-Cache local de modelos descargados desde MLFlow/S3.
+Cache local de modelos descargados desde MLFlow (no requiere S3).
 
 ```bash
 # Ubicacion en contenedor
@@ -713,6 +701,21 @@ mlflow.db  # Base de datos SQLite
 
 # Ver tamano
 docker exec mlflow-server ls -lh /mlflow/
+```
+
+#### 5. mlruns (artefactos locales de MLflow)
+
+Los artefactos de MLflow se escriben en disco local para minimizar la latencia y mantener todo junto al backend SQLite.
+
+```bash
+# Ubicacion en contenedor
+/mlflow/artifacts
+
+# Ubicacion en host
+./mlruns
+
+# Ver contenido
+ls -lh mlruns
 ```
 
 ### Gestion de Volumenes
@@ -813,16 +816,6 @@ docker run \
 ---
 
 ## Variables de Entorno
-
-### Variables Requeridas
-
-```bash
-# AWS Credentials (OBLIGATORIO)
-# Necesarias para descargar modelos desde S3 via MLFlow
-AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
-AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-AWS_DEFAULT_REGION=us-east-2
-```
 
 ### Variables de Configuracion de API
 
@@ -1044,41 +1037,6 @@ docker run -e MLFLOW_TRACKING_URI=http://$MLFLOW_IP:5000 power-tetouan-api:lates
 # Reiniciar servicios con red limpia
 docker-compose down
 docker network prune
-docker-compose up -d
-```
-
-### Problema: Modelos No Se Descargan desde S3
-
-**Sintoma**: Errors loading models from S3
-
-**Diagnostico**:
-
-```bash
-# 1. Verificar credenciales AWS
-docker exec power-tetouan-api env | grep AWS
-
-# 2. Probar acceso a S3 desde contenedor
-docker exec power-tetouan-api \
-  python -c "import boto3; s3=boto3.client('s3'); print(s3.list_buckets())"
-
-# 3. Verificar permisos de bucket
-aws s3 ls s3://itesm-mna/202502-equipo11/mlruns
-
-# 4. Ver logs de MLFlow
-docker-compose logs mlflow | grep -i error
-```
-
-**Soluciones**:
-
-```bash
-# Verificar que credenciales AWS son correctas
-# Editar .env con credenciales validas
-
-# Verificar politicas IAM de usuario AWS
-# Debe tener permisos s3:GetObject, s3:PutObject
-
-# Reiniciar con nuevas credenciales
-docker-compose down
 docker-compose up -d
 ```
 

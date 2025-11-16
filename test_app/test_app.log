@@ -1,3 +1,0 @@
-2025-11-15 09:51:14,582 - __main__ - INFO - Configuracion cargada desde .env
-2025-11-15 09:51:14,583 - api_client - INFO - APIClient inicializado: http://localhost:8000
-2025-11-15 09:51:19,601 - api_client - ERROR - Error en health check: HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=5)

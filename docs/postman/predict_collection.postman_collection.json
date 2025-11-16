@@ -55,7 +55,7 @@
           ]
         },
         {
-          "name": "POST /predict",
+          "name": "POST /predict - Champion (auto-zone)",
           "request": {
             "method": "POST",
             "header": [
@@ -66,7 +66,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"features\": {\n    \"temperature\": 23.5,\n    \"humidity\": 65.2,\n    \"wind_speed\": 5.3,\n    \"general_diffuse_flows\": 120.5,\n    \"diffuse_flows\": 80.3,\n    \"hora\": 14,\n    \"minuto\": 30,\n    \"dia_de_semana\": 2,\n    \"dia_del_ano\": 150,\n    \"lag_zone_1_power_consumption_1_hora\": 25000.0,\n    \"lag_zone_1_power_consumption_24_horas\": 26500.0,\n    \"rolling_mean_zone_1_power_consumption_1_hora\": 25200.0,\n    \"rolling_mean_zone_1_power_consumption_24_horas\": 24800.0\n  }\n}"
+              "raw": "{\n  \"features\": {\n    \"temperature\": 23.5,\n    \"humidity\": 65.2,\n    \"wind_speed\": 5.3,\n    \"general_diffuse_flows\": 120.5,\n    \"diffuse_flows\": 80.3,\n    \"hora\": 14,\n    \"minuto\": 30,\n    \"dia_de_semana\": 2,\n    \"dia_del_ano\": 150,\n    \"lag_zone_{{champion_zone}}_power_consumption_1_hora\": 20000.0,\n    \"lag_zone_{{champion_zone}}_power_consumption_24_horas\": 21500.0,\n    \"rolling_mean_zone_{{champion_zone}}_power_consumption_1_hora\": 20200.0,\n    \"rolling_mean_zone_{{champion_zone}}_power_consumption_24_horas\": 19800.0\n  }\n}"
             },
             "url": {
               "raw": "http://{{api_host}}:{{api_port}}/predict",
@@ -79,11 +79,11 @@
                 "predict"
               ]
             },
-            "description": "Invoke the prediction service with a representative feature set. The API automatically selects the deployed champion model, so only the `features` payload is required. Predictions are logged for drift monitoring."
+            "description": "Invoke the prediction service with a representative feature set. The API automatically selects the deployed champion model and infers the zone from the model name or the feature prefixes (`lag_zone_X_*`). Ajusta la variable de entorno `champion_zone` (ver `local_environment.postman_environment.json`) si el health check indica otra zona. Las predicciones se registran automáticamente para monitoreo de drift."
           },
           "response": [
             {
-              "name": "Example prediction response",
+              "name": "Example prediction response (zone inferred)",
               "status": "OK",
               "code": 200,
               "header": [
@@ -92,7 +92,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"model_name\": \"powerTetouan_RF_zone_1_power_consumption\",\n  \"prediction\": 28668.46,\n  \"timestamp\": \"2025-11-07T11:02:35\",\n  \"features_used\": [\n    \"temperature\",\n    \"humidity\",\n    \"hora\",\n    \"minuto\",\n    \"lag_zone_1_power_consumption_1_hora\",\n    \"lag_zone_1_power_consumption_24_horas\"\n  ]\n}"
+              "body": "{\n  \"model_name\": \"powerTetouan_RF_zone_3_power_consumption\",\n  \"prediction\": 25432.18,\n  \"timestamp\": \"2025-11-15T14:30:00\",\n  \"features_used\": [\n    \"temperature\",\n    \"humidity\",\n    \"wind_speed\",\n    \"general_diffuse_flows\",\n    \"diffuse_flows\",\n    \"hora\",\n    \"minuto\",\n    \"dia_de_semana\",\n    \"dia_del_ano\",\n    \"lag_zone_3_power_consumption_1_hora\",\n    \"lag_zone_3_power_consumption_24_horas\",\n    \"rolling_mean_zone_3_power_consumption_1_hora\",\n    \"rolling_mean_zone_3_power_consumption_24_horas\"\n  ]\n}"
             }
           ]
         }

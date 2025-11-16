@@ -14,7 +14,7 @@ import sys
 import time
 import logging
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 from dotenv import load_dotenv
 from colorama import init, Fore, Back, Style
@@ -28,11 +28,15 @@ from visualizer import DriftVisualizer
 init(autoreset=True)
 
 # Configurar logging
+# Crear directorio de logs en el proyecto principal
+log_dir = Path(__file__).parent.parent / "logs" / "test_app"
+log_dir.mkdir(parents=True, exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('test_app.log'),
+        logging.FileHandler(log_dir / 'test_app.log'),
         logging.StreamHandler(sys.stdout)
     ]
 )
@@ -64,6 +68,7 @@ class TestRunner:
         self.predictions = []
         self.true_values = []
         self.drift_statuses = []
+        self._feature_zone: Optional[int] = None
 
     def print_header(self, text: str):
         """Imprime un encabezado colorido."""
@@ -87,9 +92,23 @@ class TestRunner:
         """Imprime mensaje informativo."""
         print(Fore.BLUE + "[INFO] " + Style.RESET_ALL + text)
 
+    def _infer_champion_zone(self, models_info: Dict[str, Any]) -> Optional[int]:
+        """
+        Intenta deducir la zona asociada al modelo champion a partir
+        de la lista de modelos disponibles.
+        """
+        if not models_info:
+            return None
+
+        for model_name in models_info.keys():
+            for zone in (1, 2, 3):
+                if f"zone_{zone}" in model_name:
+                    return zone
+        return None
+
     def check_api_health(self) -> bool:
         """
-        Verifica que la API esté disponible.
+        Verifica que la API está disponible.
 
         Returns
         -------
@@ -111,6 +130,15 @@ class TestRunner:
                     champion_v = info.get('champion_version', 'N/A')
                     self.print_info(f"    - {model_name}: champion v{champion_v}")
 
+                inferred_zone = self._infer_champion_zone(models)
+                if inferred_zone is not None:
+                    self._feature_zone = inferred_zone
+                    self.print_info(f"  Zona inferida para test: {inferred_zone}")
+                else:
+                    self.print_warning(
+                        "  No se pudo inferir la zona del modelo, usando zona 1 por defecto"
+                    )
+
             return True
 
         except Exception as e:
@@ -120,9 +148,9 @@ class TestRunner:
             self.print_info("    docker ps | grep power-tetouan-api")
             return False
 
-    def run_predictions(self, n_predictions: int, zone: int = 1,
-                       drift_start_at: int = None,
-                       drift_type: str = 'all'):
+    def run_predictions(self, n_predictions: int,
+                        drift_start_at: int = None,
+                        drift_type: str = 'all'):
         """
         Ejecuta un ciclo de predicciones.
 
@@ -137,7 +165,7 @@ class TestRunner:
         drift_type : str
             Tipo de drift a introducir
         """
-        self.print_header(f"EJECUTANDO {n_predictions} PREDICCIONES (Zona {zone})")
+        self.print_header(f"EJECUTANDO {n_predictions} PREDICCIONES")
 
         if drift_start_at is not None:
             self.print_warning(
@@ -153,9 +181,10 @@ class TestRunner:
             self.data_generator.activate_drift(self.config['drift_intensity'])
 
         # Generar batch de datos
+        feature_zone = self._feature_zone or 1
         batch = self.data_generator.generate_batch(
             n_samples=n_predictions,
-            zone=zone,
+            zone=feature_zone,
             drift_type=drift_type,
             start_drift_at=drift_start_at
         )
@@ -182,12 +211,11 @@ class TestRunner:
                 )
 
                 # Registrar valor real
-                self.api_client.log_actual_value(zone, true_value)
+                self.api_client.log_actual_value(feature_zone, true_value)
 
                 # Guardar para visualización
                 self.predictions.append({
                     'index': i,
-                    'zone': zone,
                     'predicted': predicted_value,
                     'true': true_value,
                     'error': abs(predicted_value - true_value),
@@ -215,88 +243,70 @@ class TestRunner:
 
         self.print_success(f"\n{len(self.predictions)} predicciones completadas")
 
-    def check_drift_status(self, zones: List[int] = [1, 2, 3]):
-        """
-        Verifica el estado del drift para las zonas especificadas.
 
-        Parameters
-        ----------
-        zones : List[int]
-            Zonas a verificar
-        """
-        self.print_header("VERIFICANDO ESTADO DE DRIFT")
+    def check_drift_status(self):
+        """Verifica el estado del drift usando la zona interna."""
+        self.print_header("CONSULTANDO ESTADO DE DRIFT")
+        zone = self._feature_zone or 1
+        try:
+            status = self.api_client.get_drift_status(zone)
 
-        for zone in zones:
-            try:
-                status = self.api_client.get_drift_status(zone)
+            needs_check = status.get('needs_drift_check')
+            next_check = status.get('next_check_in_hours')
+            last_check = status.get('last_check_time')
 
-                needs_check = status.get('needs_drift_check', False)
-                last_check = status.get('last_check_time', 'Nunca')
-                next_check_hours = status.get('next_check_in_hours', 0)
+            if needs_check:
+                self.print_warning("Drift: se recomienda ejecutar chequeo manual")
+            else:
+                self.print_success("Drift bajo control")
 
-                print(f"\n  Zona {zone}:")
-                print(f"    Necesita chequeo: {needs_check}")
-                print(f"    Ultimo chequeo: {last_check}")
-                print(f"    Proximo chequeo en: {next_check_hours:.1f} horas")
+            self.print_info(f"  Ultimo chequeo: {last_check}")
+            self.print_info(f"  Proximo chequeo en: {next_check:.1f} horas")
 
-                summary = status.get('latest_report_summary')
-                if summary:
-                    print(f"    Alertas totales: {summary.get('total_alerts', 0)}")
-                    print(f"    Requiere accion: {summary.get('requires_action', False)}")
+            summary = status.get('latest_report_summary')
+            if summary:
+                alerts = summary.get('total_alerts', 0)
+                requires_action = summary.get('requires_action')
 
-                    if summary.get('has_critical_alerts'):
-                        self.print_warning("      ¡ALERTAS CRITICAS DETECTADAS!")
-
-                self.drift_statuses.append(status)
-
-            except Exception as e:
-                self.print_error(f"Error verificando drift zona {zone}: {e}")
-
-    def trigger_drift_checks(self, zones: List[int] = [1, 2, 3]):
-        """
-        Ejecuta chequeos manuales de drift.
-
-        Parameters
-        ----------
-        zones : List[int]
-            Zonas a verificar
-        """
-        self.print_header("EJECUTANDO CHEQUEOS DE DRIFT")
-
-        for zone in zones:
-            try:
-                self.print_info(f"Ejecutando chequeo para zona {zone}...")
-
-                result = self.api_client.trigger_drift_check(zone)
-
-                status = result.get('status')
-                message = result.get('message')
-
-                if status == 'success':
-                    self.print_success(f"Zona {zone}: {message}")
-
-                    summary = result.get('summary', {})
-                    recommendations = result.get('recommendations', [])
-
-                    print(f"    Alertas totales: {summary.get('total_alerts', 0)}")
-                    print(f"    Alertas criticas: {summary.get('has_critical_alerts', False)}")
-                    print(f"    Alertas altas: {summary.get('has_high_alerts', False)}")
-                    print(f"    Requiere accion: {summary.get('requires_action', False)}")
-
-                    if recommendations:
-                        print(f"\n    Recomendaciones:")
-                        for rec in recommendations:
-                            print(f"      - {rec}")
-
-                elif status == 'insufficient_data':
-                    self.print_warning(f"Zona {zone}: Datos insuficientes")
+                if alerts > 0 and requires_action:
+                    self.print_warning(f"  Alertas de drift: {alerts} (requiere accion)")
+                elif alerts > 0:
+                    self.print_info(f"  Alertas menores: {alerts}")
                 else:
-                    self.print_error(f"Zona {zone}: {message}")
+                    self.print_success("  Sin alertas recientes")
 
-                print()
+            print()
+            self.drift_statuses.append({'zone': zone, 'status': status})
 
-            except Exception as e:
-                self.print_error(f"Error en chequeo de drift zona {zone}: {e}")
+        except Exception as e:
+            self.print_error(f"Error consultando drift: {e}")
+
+    def trigger_drift_checks(self):
+        """Ejecuta un chequeo manual de drift usando la zona interna."""
+        self.print_header("EJECUTANDO CHEQUEO MANUAL DE DRIFT")
+        zone = self._feature_zone or 1
+        try:
+            result = self.api_client.trigger_drift_check(zone)
+            status = result.get('status')
+            message = result.get('message', '')
+
+            if status == 'success':
+                self.print_success("Chequeo completado")
+                summary = result.get('summary', {})
+                if summary:
+                    alerts = summary.get('total_alerts', 0)
+                    requires_action = summary.get('requires_action', False)
+                    self.print_info(f"  Alertas: {alerts}")
+                    self.print_info(f"  Requiere accion: {'SI' if requires_action else 'NO'}")
+            elif status == 'insufficient_data':
+                self.print_warning(message)
+            else:
+                self.print_error(message)
+
+            print()
+
+        except Exception as e:
+            self.print_error(f"Error en chequeo de drift: {e}")
 
     def generate_report(self):
         """Genera un reporte visual de los resultados."""
@@ -307,13 +317,14 @@ class TestRunner:
             return
 
         try:
-            output_dir = Path("test_results")
-            output_dir.mkdir(exist_ok=True)
+            # Guardar reportes en el directorio reports del proyecto principal
+            output_dir = Path(__file__).parent.parent / "reports" / "test_app"
+            output_dir.mkdir(parents=True, exist_ok=True)
 
             self.visualizer.plot_predictions(self.predictions, output_dir)
             self.visualizer.plot_errors(self.predictions, output_dir)
 
-            self.print_success(f"Reportes generados en: {output_dir}/")
+            self.print_success(f"Reportes generados en: {output_dir.relative_to(Path.cwd().parent)}/")
             self.print_info(f"  - predictions_timeline.png")
             self.print_info(f"  - prediction_errors.png")
 
@@ -324,35 +335,31 @@ class TestRunner:
         """Ejecuta el ciclo completo de tests."""
         self.print_header("INICIANDO TEST COMPLETO DE LA API")
 
-        # Verificar conexión
+        # Verificar conexi?n
         if not self.check_api_health():
             return
 
         time.sleep(2)
 
-        # Configuración del test
-        zones = [int(z) for z in self.config['simulate_zones'].split(',')]
         total_predictions = self.config['total_predictions']
         drift_start = self.config['drift_start_after']
         drift_type = self.config['drift_type']
 
-        # Realizar predicciones para cada zona
-        for zone in zones:
-            self.run_predictions(
-                n_predictions=total_predictions,
-                zone=zone,
-                drift_start_at=drift_start,
-                drift_type=drift_type
-            )
-            time.sleep(3)
+        # Realizar predicciones
+        self.run_predictions(
+            n_predictions=total_predictions,
+            drift_start_at=drift_start,
+            drift_type=drift_type
+        )
+        time.sleep(3)
 
         # Verificar estado de drift
         time.sleep(2)
-        self.check_drift_status(zones)
+        self.check_drift_status()
 
-        # Ejecutar chequeos de drift
+        # Ejecutar chequeo de drift
         time.sleep(2)
-        self.trigger_drift_checks(zones)
+        self.trigger_drift_checks()
 
         # Generar reportes
         time.sleep(2)
@@ -360,16 +367,20 @@ class TestRunner:
 
         self.print_header("TEST COMPLETADO")
 
-        # Resumen final
         total_preds = len(self.predictions)
-        avg_error = sum(p['error'] for p in self.predictions) / total_preds if total_preds > 0 else 0
+        avg_error = (
+            sum(p['error'] for p in self.predictions) / total_preds
+            if total_preds > 0 else 0
+        )
 
         self.print_success(f"Predicciones totales: {total_preds}")
         self.print_info(f"Error promedio: {avg_error:.2f} kW")
 
         drift_preds = sum(1 for p in self.predictions if p['drift_active'])
         if drift_preds > 0:
-            self.print_warning(f"Predicciones con drift: {drift_preds} ({drift_preds/total_preds*100:.1f}%)")
+            self.print_warning(
+                f"Predicciones con drift: {drift_preds} ({drift_preds/total_preds*100:.1f}%)"
+            )
 
 
 def load_config() -> Dict[str, Any]:
@@ -395,7 +406,6 @@ def load_config() -> Dict[str, Any]:
         'drift_start_after': int(os.getenv('DRIFT_START_AFTER', '50')),
         'drift_intensity': float(os.getenv('DRIFT_INTENSITY', '0.3')),
         'log_level': os.getenv('LOG_LEVEL', 'INFO'),
-        'simulate_zones': os.getenv('SIMULATE_ZONES', '1'),
         'total_predictions': int(os.getenv('TOTAL_PREDICTIONS', '200')),
         'drift_type': os.getenv('DRIFT_TYPE', 'all'),
     }
@@ -418,3 +428,15 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
+
+
+
+

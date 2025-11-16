@@ -16,25 +16,23 @@ services:
       - "${MLFLOW_PORT:-5001}:5000"
 
     environment:
-      # Credenciales AWS para acceso a S3
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-2}
-
       # Allow access from Docker network (disable strict host checking)
       - MLFLOW_ALLOWED_HOSTS=*
 
     volumes:
       # SQLite database + cache local
       - mlflow_data:/mlflow
+      # Artefactos locales persistidos en el host
+      - ./mlruns:/mlflow/artifacts
 
     command: >
       mlflow server
       --backend-store-uri sqlite:///mlflow/mlflow.db
-      --default-artifact-root s3://itesm-mna/202502-equipo11/mlruns
+      --default-artifact-root ${MLFLOW_ARTIFACT_ROOT:-file:///mlflow/artifacts}
       --host 0.0.0.0
       --port 5000
-      --gunicorn-opts "--timeout 120"
+      --workers 4
+      --allowed-hosts *
 
     restart: unless-stopped
 
@@ -77,7 +75,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
 
       # MLFlow configuration
-      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
 
       # AWS credentials para descargar modelos desde S3 vía MLFlow
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}

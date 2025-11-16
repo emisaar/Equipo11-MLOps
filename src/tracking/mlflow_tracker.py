@@ -530,16 +530,26 @@ class MLflowTracker:
         except Exception:
             return None
 
-        # Guardar el modelo físicamente con sufijo _champion
+        # Guardar el modelo físicamente con sufijo _version_XX_champion
         if models_dir is not None:
             try:
                 import joblib
                 model_uri = f"models:/{reg_name}@champion"
                 champion_model = mlflow.sklearn.load_model(model_uri)
 
-                # Crear nombre del archivo con sufijo _champion
-                champion_path = models_dir / f"{reg_name}_champion.pkl"
+                # Crear nombre del archivo con sufijo _version_XX_champion
+                raw_version = str(version_to_promote).strip()
+                version_token = raw_version.zfill(2) if raw_version.isdigit() else raw_version.replace(" ", "_") or "00"
+                champion_path = models_dir / f"{reg_name}_version_{version_token}_champion.pkl"
                 models_dir.mkdir(parents=True, exist_ok=True)
+                stale_candidates = [models_dir / f"{reg_name}_champion.pkl"]
+                stale_candidates += list(models_dir.glob(f"{reg_name}_version_*_champion.pkl"))
+                for stale_file in stale_candidates:
+                    if stale_file.exists():
+                        try:
+                            stale_file.unlink()
+                        except FileNotFoundError:
+                            pass
 
                 # Guardar el modelo
                 joblib.dump(champion_model, champion_path)
