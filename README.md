@@ -4,6 +4,11 @@
 
 Proyecto de predicción de consumo eléctrico en Tetouan City utilizando múltiples modelos de machine learning (VAR, Random Forest, XGBoost, LSTM) con pipeline completo de MLOps.
 
+### Actualizaciones recientes
+- **Versionado del champion:** los artefactos promovidos desde MLflow se guardan como `*_version_XX_champion.pkl`, lo que facilita auditar releases y reconstruir imágenes Docker de forma determinística.
+- **Detección automática de zona:** el endpoint `/predict` utiliza el champion activo sin parámetros adicionales y deduce la zona tanto del nombre del modelo como de los prefijos `lag_zone_X_*` incluidos en la solicitud.
+- **Colección Postman parametrizada:** la colección de `docs/postman/` usa la variable `champion_zone`. Antes de enviar peticiones, consulta `/health` y ajusta esa variable en `local_environment.postman_environment.json` para que coincida con la zona del champion desplegado.
+
 ### Estructura del Proyecto
 ```
 .
@@ -58,7 +63,8 @@ Proyecto de predicción de consumo eléctrico en Tetouan City utilizando múltip
 │  ├─ clean_data.py          # Stage 2: Limpieza
 │  ├─ preprocess.py          # Stage 3: Preprocesamiento y splits
 │  ├─ train.py               # Stage 4: Entrenamiento de modelos
-│  └─ evaluate.py            # Stage 5: Evaluación y comparación
+│  ├─ evaluate.py            # Stage 5: Evaluación y comparación
+│  └─ deploy.py              # Stage 6: Copia del champion versionado, sync a S3 y rebuild de imagen Docker
 │
 ├─ models/                   # Modelos entrenados (.pkl)
 ├─ metrics/                  # Métricas de evaluación (JSON)
@@ -80,17 +86,27 @@ Proyecto de predicción de consumo eléctrico en Tetouan City utilizando múltip
 │  ├─ DOCKER_DEPLOYMENT.md   # Guía completa de despliegue Docker
 │  ├─ DOCKER_QUICKSTART.md   # Referencia rápida de Docker
 │  ├─ DRIFT_MONITORING.md    # Sistema de monitoreo de drift
-│  └─ RESUMEN_IMPLEMENTACION.md  # Resumen ejecutivo de implementación
+│  ├─ Drift_Monitoring_Implementation.md  # Paso a paso técnico
+│  ├─ CUMPLIMIENTO_RUBRICA_MLOPS.md       # Evidencia de rúbrica
+│  └─ postman/               # Colecciones y ambientes (parametrizados con champion_zone)
 │
-├─ scripts/                  # Scripts de automatización
-│  ├─ docker-build.sh        # Build de imagen Docker con versionado
-│  ├─ docker-run.sh          # Ejecución de contenedor
-│  └─ docker-push.sh         # Publicación a DockerHub
+├─ scripts/                  # Scripts de automatización y despliegue
+│  ├─ docker-build.sh        # Build de imagen Docker con tags semánticos/git
+│  ├─ docker-run.sh          # Ejecución de contenedor local (volúmenes y puertos)
+│  ├─ docker-push.sh         # Publicación a DockerHub
+│  ├─ setup-docker-hub.sh    # Pipeline completo: copia champion, rebuild y push
+│  └─ verify-deployment.sh   # Checklist automatizado post-despliegue (champion, DVC, endpoints)
 │
 ├─ tests/                    # Tests automatizados
 │  ├─ test_monitoring.py     # Tests del sistema de drift (20 tests)
 │  ├─ test_preprocessing.py  # Tests de preprocesamiento
-│  └─ test_integration_pipeline.py  # Tests de integración
+│  ├─ test_integration_pipeline.py  # Tests de integración
+│  └─ test_api.py            # Smoke tests de la API FastAPI
+│
+├─ test_app/                 # Cliente CLI para pruebas end-to-end
+│  ├─ main.py                # Orquesta predicciones, drift y reportes
+│  ├─ data_generator.py      # Genera cargas sintéticas (con drift gradual)
+│  └─ visualizer.py          # Reportes /plots de predicciones y errores
 │
 ├─ examples/                 # Ejemplos de uso
 │  └─ drift_monitoring_demo.py  # Demo del sistema de drift
@@ -341,7 +357,7 @@ El proyecto incluye una API REST desarrollada con FastAPI para exponer los model
 - Documentación automática en `/docs` (Swagger UI)
 - Cache de modelos en memoria para mejor rendimiento
 - Health check endpoint en `/health`
-- **Sistema de monitoreo de drift en tiempo real** (NUEVO)
+- **Sistema de monitoreo de drift en tiempo real**
   - Detección automática de drift estadístico, temporal y de performance
   - Alertas configurables por severidad
   - Endpoints para consulta de estado y chequeo manual
@@ -838,7 +854,7 @@ Los modelos Pydantic viven en `api/schemas.py` y son exactamente los que FastAPI
 > Desde Postman basta con descargar `http://localhost:8000/openapi.json` y cargarlo como colección para ver automáticamente estos esquemas.
 > Antes de enviar requests desde la colección provista en `docs/postman/`, actualiza la variable de entorno `champion_zone` del archivo `local_environment.postman_environment.json` con la zona que reporte `/health` para el modelo champion vigente.
 
-### Drift Monitoring (Nuevos)
+### Drift Monitoring
 
 - **GET** `/monitoring/drift/status` - Estado actual del monitoreo de drift del modelo champion
   - Query params: `zone` (int)
@@ -860,9 +876,8 @@ Los modelos Pydantic viven en `api/schemas.py` y son exactamente los que FastAPI
 - **Código fuente**: `api/` (main.py, schemas.py, predictor.py, drift_monitor.py)
 
 **Documentación de Docker:**
-- **Guía completa**: [docs/DOCKER_DEPLOYMENT.md](docs/DOCKER_DEPLOYMENT.md)
-- **Quick start**: [docs/DOCKER_QUICKSTART.md](docs/DOCKER_QUICKSTART.md)
+- **Guía completa**: [docs/Docker.md](docs/Docker.md)
 
 **Documentación de Drift Monitoring:**
-- **Sistema completo**: [docs/DRIFT_MONITORING.md](docs/DRIFT_MONITORING.md)
-- **Resumen de implementación**: [docs/RESUMEN_IMPLEMENTACION.md](docs/RESUMEN_IMPLEMENTACION.md)
+- **Sistema completo**: [docs/Drift_Monitoring.md](docs/Drift_Monitoring.md)
+- **Resumen de implementación**: [docs/Drift_Monitoring_Implementation.md](docs/Drift_Monitoring_Implementation.md)
