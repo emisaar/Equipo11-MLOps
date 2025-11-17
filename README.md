@@ -4,11 +4,6 @@
 
 Proyecto de predicción de consumo eléctrico en Tetouan City utilizando múltiples modelos de machine learning (VAR, Random Forest, XGBoost, LSTM) con pipeline completo de MLOps.
 
-### Actualizaciones recientes
-- **Versionado del champion:** los artefactos promovidos desde MLflow se guardan como `*_version_XX_champion.pkl`, lo que facilita auditar releases y reconstruir imágenes Docker de forma determinística.
-- **Detección automática de zona:** el endpoint `/predict` utiliza el champion activo sin parámetros adicionales y deduce la zona tanto del nombre del modelo como de los prefijos `lag_zone_X_*` incluidos en la solicitud.
-- **Colección Postman parametrizada:** la colección de `docs/postman/` usa la variable `champion_zone`. Antes de enviar peticiones, consulta `/health` y ajusta esa variable en `local_environment.postman_environment.json` para que coincida con la zona del champion desplegado.
-
 ### Estructura del Proyecto
 ```
 .
@@ -129,7 +124,7 @@ Proyecto de predicción de consumo eléctrico en Tetouan City utilizando múltip
 
 ### Modelos Implementados
 
-Este proyecto entrena y compara 4 tipos de modelos:
+Este proyecto entrena y compara 3 tipos de modelos:
 
 1. **VAR (Vector AutoRegression)**: Modelo estadístico multivariado para capturar interdependencias entre zonas
 2. **Random Forest**: Modelo de ensemble con features temporales y meteorológicas
@@ -138,25 +133,12 @@ Este proyecto entrena y compara 4 tipos de modelos:
 Cada modelo (excepto VAR) se entrena individualmente para cada una de las 3 zonas de consumo.
 
 ## Requisitos
-```bash
-python -m venv .venv 
 
-# Linux/Mac:
-# source .venv/bin/activate  
+El proyecto tiene dos archivos de dependencias:
+- **`requirements.txt`**: Dependencias completas para desarrollo (incluye notebooks, DVC, testing)
+- **`requirements-api.txt`**: Dependencias optimizadas para producción (solo API y modelos ML)
 
-# Windows: 
-.venv\Scripts\activate
-
-# Actualizar pip
-python.exe -m pip install --upgrade pip
-
-# Instalar librerias desde requirements.txt
-pip install -r requirements.txt
-
-# En caso de reinstalar las libreria
-# pip install --upgrade --force-reinstall -r requirements.txt
-# (opcional) conda: conda env create -f environment.yml
-```
+**Nota**: El `Dockerfile` utiliza `requirements-api.txt` para generar imágenes más livianas optimizadas para producción.
 
 ## Pipeline DVC
 
@@ -255,8 +237,8 @@ Todos los hiperparámetros y configuraciones se gestionan en `params.yaml`:
 - **data**: Rutas de entrada/salida de datos
 - **preprocessing**: Configuración de limpieza y outliers
 - **split**: Proporción train/test y random state
-- **models.to_train**: Lista de modelos a entrenar (usar snake_case: `random_forest`, `xgboost`, `var`, `lstm`)
-- **models.var/random_forest/xgboost/lstm**: Hiperparámetros específicos por modelo
+- **models.to_train**: Lista de modelos a entrenar (usar snake_case: `random_forest`, `xgboost`, `var`)
+- **models.var/random_forest/xgboost**: Hiperparámetros específicos por modelo
 - **evaluation**: Configuración de evaluación y métricas
 
 Para modificar hiperparámetros, edita `params.yaml` y ejecuta `dvc repro` para regenerar resultados.
@@ -345,22 +327,19 @@ Las gráficas comparativas se guardan en `reports/figures/`:
 
 Cada gráfica muestra las predicciones de los 4 modelos vs. valores reales.
 
-## API REST para Predicción
+## API REST y Endpoints
 
-El proyecto incluye una API REST desarrollada con FastAPI para exponer los modelos entrenados.
+El proyecto incluye una API REST desarrollada con FastAPI para exponer los modelos entrenados y monitorear drift en tiempo real.
 
 ### Características de la API
 
-- Endpoint POST `/predict` para predicción de consumo eléctrico
-- Validación de entrada con Pydantic y manejo de errores robusto
-- Soporte para modelos: VAR, Random Forest, XGBoost
-- Documentación automática en `/docs` (Swagger UI)
-- Cache de modelos en memoria para mejor rendimiento
-- Health check endpoint en `/health`
-- **Sistema de monitoreo de drift en tiempo real**
-  - Detección automática de drift estadístico, temporal y de performance
-  - Alertas configurables por severidad
-  - Endpoints para consulta de estado y chequeo manual
+- **Predicción**: Endpoint POST `/predict` usando modelos champion versionados
+- **Validación robusta**: Pydantic schemas con manejo de errores detallado
+- **Carga inteligente**: Modelos desde MLFlow Registry (S3) o directorio local con cache en memoria
+- **Documentación automática**: Swagger UI en `/docs` y OpenAPI schema en `/openapi.json`
+- **Health checks**: Endpoint `/health` con información de versiones y estado de modelos
+- **Monitoreo de drift**: Sistema en tiempo real con detección estadística, temporal y de performance
+- **Alertas configurables**: Por severidad con recomendaciones automáticas
 
 ### Iniciar el Servidor API
 
@@ -375,13 +354,43 @@ uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 curl http://localhost:8000/health
 ```
 
-### Endpoints Principales
+### Modelos Disponibles en la API
 
-#### POST `/predict` - Realizar Predicción
+Los modelos se cargan desde MLflow Registry y están versionados tanto en DVC como en MLflow:
 
-**Request:**
+| Tipo de Modelo | Nombre en MLflow Registry | Ruta MLflow Champion | Ruta MLflow Latest |
+|----------------|---------------------------|---------------------|-------------------|
+| Random Forest Zona 1 | `powerTetouan_RF_zone_1_power_consumption` | `models:/powerTetouan_RF_zone_1_power_consumption/1` | `models:/powerTetouan_RF_zone_1_power_consumption/2` |
+| Random Forest Zona 2 | `powerTetouan_RF_zone_2_power_consumption` | `models:/powerTetouan_RF_zone_2_power_consumption/1` | `models:/powerTetouan_RF_zone_2_power_consumption/2` |
+| Random Forest Zona 3 | `powerTetouan_RF_zone_3_power_consumption` | `models:/powerTetouan_RF_zone_3_power_consumption/1` | `models:/powerTetouan_RF_zone_3_power_consumption/2` |
+
+**Versionado de Modelos:**
+- **Champion Version**: Versión en producción (actualmente v1 para todas las zonas)
+- **Latest Version**: Última versión entrenada (actualmente v2 para todas las zonas)
+- **Ruta MLflow**: Formato `models:/<nombre_modelo>/<version>` para acceso programático desde MLflow **Registry**
+
+**Nota**: Las versiones de DVC (hashes MD5) se encuentran en el archivo `dvc.lock`. Los modelos se sincronizan entre MLflow Registry (S3) y el directorio local `models/`
+
+### Lista de Endpoints
+
+**API Principal:**
+- **GET** `/` - Información básica de la API
+- **GET** `/health` - Health check
+- **POST** `/predict` - Realizar predicción de consumo eléctrico usando modelo champion
+
+**Monitoreo de Drift:**
+- **POST** `/monitoring/actual` - Registrar valor real observado para comparación
+- **GET** `/monitoring/drift/status` - Consultar estado del monitoreo de drift (query param: `zone`)
+- **POST** `/monitoring/drift/check` - Ejecutar chequeo manual de drift (query param: `zone`)
+
+### Endpoint POST `/predict` - Predicción
+
+Realiza una predicción de consumo eléctrico usando el modelo champion desplegado para la zona especificada.
+
+**Request (`PredictionRequest`):**
 ```json
 {
+  "zone": 1,
   "features": {
     "temperature": 23.5,
     "humidity": 65.2,
@@ -392,31 +401,41 @@ curl http://localhost:8000/health
     "minuto": 30,
     "dia_de_semana": 2,
     "dia_del_ano": 150,
-    "lag_zone_1_power_consumption_1_hora": 25000.0,
-    "lag_zone_1_power_consumption_24_horas": 26500.0,
-    "rolling_mean_zone_1_power_consumption_1_hora": 25200.0,
-    "rolling_mean_zone_1_power_consumption_24_horas": 24800.0
+    "lag_power_consumption_1_hora": 25000.0,
+    "lag_power_consumption_24_horas": 26500.0,
+    "rolling_mean_power_consumption_1_hora": 25200.0,
+    "rolling_mean_power_consumption_24_horas": 24800.0
   }
 }
 ```
 
-**Response:**
+**Parámetros:**
+- **zone** (`int`, requerido): Zona de consumo eléctrico (1, 2 o 3)
+- **features** (`object`, requerido): Diccionario con todas las variables del modelo:
+  - **Temporales**: `hora`, `minuto`, `dia_de_semana`, `dia_del_ano`
+  - **Meteorológicas**: `temperature`, `humidity`, `wind_speed`, `general_diffuse_flows`, `diffuse_flows`
+  - **Lags**: `lag_power_consumption_1_hora`, `lag_power_consumption_24_horas`
+  - **Rolling means**: `rolling_mean_power_consumption_1_hora`, `rolling_mean_power_consumption_24_horas`
+
+**Response (`PredictionResponse`):**
 ```json
 {
-  "model_name": "powerTetouan_RF_zone_1_power_consumption",
+  "model_name": "powerTetouan_RF_zone_1_version_02_champion",
   "prediction": 28668.46,
-  "timestamp": "2025-11-07T11:02:35",
-  "features_used": ["temperature", "humidity", "hora", "minuto", ...]
+  "timestamp": "2025-01-15T14:30:00",
+  "features_used": ["temperature", "humidity", "hora", "minuto", "lag_power_consumption_1_hora", ...]
 }
 ```
 
-**Nota sobre Features**: Los modelos esperan features específicas generadas por `create_ml_features`:
-- **Variables meteorológicas**: `temperature`, `humidity`, `wind_speed`, `general_diffuse_flows`, `diffuse_flows`
-- **Features temporales**: `hora`, `minuto`, `dia_de_semana`, `dia_del_ano`
-- **Lags**: `lag_zone_X_power_consumption_1_hora`, `lag_zone_X_power_consumption_24_horas` (donde X es 1, 2 o 3)
-- **Rolling means**: `rolling_mean_zone_X_power_consumption_1_hora`, `rolling_mean_zone_X_power_consumption_24_horas`
+**Campos de respuesta:**
+- **model_name**: Nombre del modelo champion cargado (formato `*_version_XX_champion.pkl`)
+- **prediction**: Consumo estimado en kW
+- **timestamp**: Instante de ejecución de la inferencia (ISO 8601)
+- **features_used**: Lista exacta de features aplicadas por el pipeline
 
-#### GET `/health` - Health Check
+### Endpoint GET `/health` - Health Check
+
+Verifica el estado del servicio y lista los modelos disponibles con sus versiones.
 
 **Response:**
 ```json
@@ -424,68 +443,144 @@ curl http://localhost:8000/health
   "status": "healthy",
   "models_available": {
     "powerTetouan_RF_zone_1_power_consumption": {
-      "champion_version": "12",
-      "latest_version": "15",
+      "champion_version": "1",
+      "latest_version": "2",
       "source": "mlflow"
     },
-    "powerTetouan_XGB_zone_3_power_consumption": {
-      "champion_version": "local",
-      "latest_version": "local",
-      "source": "file_system"
+    "powerTetouan_RF_zone_2_power_consumption": {
+      "champion_version": "1",
+      "latest_version": "2",
+      "source": "mlflow"
+    },
+    "powerTetouan_RF_zone_3_power_consumption": {
+      "champion_version": "1",
+      "latest_version": "2",
+      "source": "mlflow"
     }
   },
   "timestamp": "2025-01-15T14:30:00"
 }
 ```
 
-### Modelos Disponibles en la API
+### Endpoints de Monitoreo de Drift
 
-Los modelos se cargan desde el directorio `models/` y están versionados con DVC:
+#### POST `/monitoring/actual` - Registrar Valor Real
 
-| Tipo de Modelo | Ruta del Artefacto | Versión |
-|----------------|-------------------|---------|
-| VAR | `models/var_model.pkl` | Ver `dvc.lock` |
-| Random Forest Zona 1 | `models/rf_zone_1_power_consumption.pkl` | Ver `dvc.lock` |
-| Random Forest Zona 2 | `models/rf_zone_2_power_consumption.pkl` | Ver `dvc.lock` |
-| Random Forest Zona 3 | `models/rf_zone_3_power_consumption.pkl` | Ver `dvc.lock` |
-| XGBoost Zona 1 | `models/xgb_zone_1_power_consumption.pkl` | Ver `dvc.lock` |
-| XGBoost Zona 2 | `models/xgb_zone_2_power_consumption.pkl` | Ver `dvc.lock` |
-| XGBoost Zona 3 | `models/xgb_zone_3_power_consumption.pkl` | Ver `dvc.lock` |
+Registra el valor real de consumo eléctrico para compararlo con la predicción y calcular métricas de performance.
 
-**Nota**: Las versiones exactas de los modelos se encuentran en el archivo `dvc.lock`, que contiene los hashes MD5 de cada artefacto.
-
-### Ejemplo de Uso con Python
-
-```python
-import requests
-
-response = requests.post(
-    "http://localhost:8000/predict",
-    json={
-        "features": {
-            "temperature": 23.5,
-            "humidity": 65.2,
-            "wind_speed": 5.3,
-            "general_diffuse_flows": 120.5,
-            "diffuse_flows": 80.3,
-            "hora": 14,
-            "minuto": 30,
-            "dia_de_semana": 2,
-            "dia_del_ano": 150,
-            "lag_zone_1_power_consumption_1_hora": 25000.0,
-            "lag_zone_1_power_consumption_24_horas": 26500.0,
-            "rolling_mean_zone_1_power_consumption_1_hora": 25200.0,
-            "rolling_mean_zone_1_power_consumption_24_horas": 24800.0
-        }
-    }
-)
-
-result = response.json()
-print(f"Predicción: {result['prediction']:.2f} kW")
-print(f"Modelo usado: {result['model_name']}")
+**Request (`ActualValueRequest`):**
+```json
+{
+  "zone": 1,
+  "actual_value": 28500.0,
+  "timestamp": "2025-01-15T14:30:00"
+}
 ```
 
-### Despliegue con Docker
+**Response (`ActualValueResponse`):**
+```json
+{
+  "status": "success",
+  "message": "Valor real registrado exitosamente",
+  "zone": 1,
+  "actual_value": 28500.0,
+  "timestamp": "2025-01-15T14:30:00"
+}
+```
+
+#### GET `/monitoring/drift/status` - Estado del Monitoreo
+
+Consulta el estado actual del sistema de monitoreo de drift para el modelo champion de una zona.
+
+**Query Parameters:**
+- `zone` (int, required): Zona a consultar (1, 2 o 3)
+
+**Response (`DriftStatusResponse`):**
+```json
+{
+  "zone": 1,
+  "model_type": "Champion",
+  "needs_drift_check": false,
+  "last_check_time": "2025-01-15T12:00:00",
+  "next_check_in_hours": 4.5,
+  "latest_report_summary": {
+    "total_alerts": 2,
+    "critical_alerts": 0,
+    "high_alerts": 1,
+    "drift_detected": true
+  }
+}
+```
+
+#### POST `/monitoring/drift/check` - Ejecutar Chequeo Manual
+
+Fuerza la ejecución del pipeline completo de detección de drift para el modelo champion.
+
+**Query Parameters:**
+- `zone` (int, required): Zona a evaluar (1, 2 o 3)
+
+**Response (`DriftCheckResponse`):**
+```json
+{
+  "status": "success",
+  "message": "Chequeo de drift completado",
+  "zone": 1,
+  "model_type": "Champion",
+  "summary": {
+    "total_alerts": 3,
+    "has_critical_alerts": false,
+    "has_high_alerts": true,
+    "requires_action": true
+  },
+  "recommendations": [
+    "Schedule model retraining within 24-48 hours",
+    "Review feature engineering pipeline for potential issues"
+  ]
+}
+```
+
+### Esquemas Pydantic (OpenAPI / Postman)
+
+Los modelos Pydantic están definidos en `api/schemas.py` y se publican automáticamente en:
+- **Swagger UI**: http://localhost:8000/docs
+- **OpenAPI JSON**: http://localhost:8000/openapi.json (importable en Postman con *Import → Raw text*)
+
+**Esquemas disponibles:**
+- `PredictionRequest` / `PredictionResponse`: Para el endpoint `/predict`
+- `ActualValueRequest` / `ActualValueResponse`: Para `/monitoring/actual`
+- `DriftStatusResponse`: Para `/monitoring/drift/status`
+- `DriftCheckResponse`: Para `/monitoring/drift/check`
+- `ErrorResponse`: Respuestas de error con código, mensaje y detalles opcionales
+
+### MLFlow Integration
+
+**MLFlow UI**: http://localhost:5001
+
+MLFlow proporciona tracking de experimentos, versionado de modelos y registro centralizado.
+
+**Configuración:**
+- **Backend Store**: SQLite local (`/mlflow/mlflow.db`) para metadatos de experimentos
+- **Artifact Store**: S3 (`s3://itesm-mna/202502-equipo11/mlflow-artifacts`) para modelos y artefactos grandes
+- **Tracking URI**: `http://mlflow:5000` (interno en Docker network) o `http://localhost:5001` (externo)
+
+**Flujo de trabajo:**
+1. Los modelos se entrenan y registran en MLFlow Registry con `mlflow.log_model()`
+2. Se asignan alias (`champion`, `staging`, `production`) para gestionar versiones
+3. La API carga automáticamente el modelo champion
+
+**Comandos útiles:**
+```bash
+# Ver experimentos registrados
+mlflow experiments list
+
+# Ver runs de un experimento
+mlflow runs list --experiment-id 1
+
+# Registrar modelo con alias champion
+mlflow models set-tag -n "powerTetouan_RF_zone_1_power_consumption" -v 5 champion
+```
+
+## Despliegue con Docker
 
 El proyecto incluye soporte para Docker, facilitando el despliegue y la portabilidad del servicio.
 
@@ -504,33 +599,64 @@ curl http://localhost:8000/health
 
 #### Opción 2: Docker Compose (API + MLFlow)
 
-Esta opción levanta tanto la API como el servidor MLFlow para tracking de experimentos.
+Esta opción levanta tanto la API como el servidor MLFlow para tracking de experimentos y registro de modelos.
 
 ```bash
 # Configurar variables de entorno (crear archivo .env)
 cat > .env << EOF
-AWS_ACCESS_KEY_ID=tu_access_key
-AWS_SECRET_ACCESS_KEY=tu_secret_key
-AWS_DEFAULT_REGION=us-east-2
+# AWS Credentials para acceso a S3 (modelos y artefactos)
+AWS_ACCESS_KEY_ID=<<access_key>>
+AWS_SECRET_ACCESS_KEY=<<secret_key>>
+AWS_DEFAULT_REGION=<<region>>
+AWS_S3_BUCKET=<<bucket_name>>
+
+# Configuración de puertos
 API_PORT=8000
+MLFLOW_PORT=5001
+
+# Configuración de logging
+LOG_LEVEL=info
+
+# Configuración de drift monitoring
+DRIFT_CHECK_INTERVAL_HOURS=6
+DRIFT_MONITORING_WINDOW_HOURS=24
+DRIFT_PERFORMANCE_THRESHOLD=0.15
 EOF
 
 # Levantar todos los servicios
 docker compose up -d
 
-# Ver logs
+# Ver logs de todos los servicios
 docker compose logs -f
+
+# Ver logs solo de la API
+docker compose logs -f api
+
+# Ver logs solo de MLFlow
+docker compose logs -f mlflow
 
 # Detener servicios
 docker compose down
+
+# Detener y eliminar volúmenes
+docker compose down -v
 ```
 
 **Servicios disponibles:**
-- API FastAPI: http://localhost:8000
-- MLFlow UI: http://localhost:5001
-- Documentación API: http://localhost:8000/docs
+- **API FastAPI**: http://localhost:8000
+- **MLFlow UI**: http://localhost:5001
+- **Documentación API (Swagger)**: http://localhost:8000/docs
+- **OpenAPI Schema**: http://localhost:8000/openapi.json
 
-### Pruebas automatizadas
+### Tags Versionados (DockerHub)
+
+La imagen se publica con 3 tags para trazabilidad:
+
+1. **Versión específica**: `equipo11/power-tetouan-api:2.0.0` (producción)
+2. **Latest**: `equipo11/power-tetouan-api:latest` (última estable)
+3. **Git commit**: `equipo11/power-tetouan-api:<hash>` (trazabilidad completa)
+
+## Pruebas automatizadas
 
 El proyecto incluye 54 tests automatizados que aseguran la calidad del codigo en todos los componentes.
 
@@ -654,230 +780,3 @@ pytest tests/test_monitoring.py -v
 
 # Resultado esperado: 20 tests passing
 ```
-
-## Despliegue con Docker
-
-El proyecto está completamente containerizado para despliegues reproducibles.
-
-### Comandos Rápidos
-
-```bash
-# 1. Build de la imagen
-docker build -t ml-service:latest .
-
-# 2. Ejecutar contenedor
-docker run -p 8000:8000 ml-service:latest
-
-# 3. O usar Docker Compose (recomendado)
-docker-compose up -d
-```
-
-### Características de la Imagen Docker
-
-**Multi-Stage Build:**
-- Stage 1 (Builder): Compilación de dependencias científicas (~1.5 GB, descartado)
-- Stage 2 (Runtime): Imagen final optimizada (~600-800 MB)
-
-**Contenido:**
-- Python 3.11-slim
-- FastAPI + Uvicorn
-- Modelos ML (VAR, RandomForest, XGBoost)
-- Sistema completo de monitoreo de drift
-- Integración con MLFlow
-- Soporte AWS S3
-
-**Seguridad:**
-- Usuario no-root (apiuser:1000)
-- Sin credenciales hardcodeadas
-- Health checks automáticos cada 30s
-- Variables de entorno para secrets
-
-**Volúmenes Persistentes:**
-- `prediction_logs`: Historial de predicciones para drift monitoring
-- `drift_reports`: Reportes de drift generados
-- `model_cache`: Cache de modelos descargados
-- `mlflow_data`: Base de datos MLFlow
-
-### Docker Compose
-
-Ejecuta API + MLFlow simultáneamente:
-
-```bash
-# Configurar variables de entorno
-cp .env.example .env
-# Editar .env con tus credenciales AWS
-
-# Iniciar servicios
-docker-compose up -d
-
-# Verificar estado
-docker-compose ps
-
-# Ver logs
-docker-compose logs -f api
-
-# Detener servicios
-docker-compose down
-```
-
-**Servicios disponibles:**
-- API: http://localhost:8000
-- MLFlow UI: http://localhost:5001
-- Swagger UI: http://localhost:8000/docs
-
-### Scripts de Deployment
-
-```bash
-# Build con versionado semántico (2.0.0, latest, git-commit)
-./scripts/docker-build.sh
-
-# Ejecutar con configuración completa
-./scripts/docker-run.sh
-
-# Publicar a DockerHub
-docker login
-./scripts/docker-push.sh
-```
-
-### Tags Versionados (DockerHub)
-
-La imagen se publica con 3 tags para trazabilidad:
-
-1. **Versión específica**: `equipo11/power-tetouan-api:2.0.0` (producción)
-2. **Latest**: `equipo11/power-tetouan-api:latest` (última estable)
-3. **Git commit**: `equipo11/power-tetouan-api:<hash>` (trazabilidad completa)
-
-### Variables de Entorno
-
-```bash
-# AWS Credentials (para acceso a modelos en S3)
-AWS_ACCESS_KEY_ID=<tu-access-key>
-AWS_SECRET_ACCESS_KEY=<tu-secret-key>
-AWS_DEFAULT_REGION=us-east-2
-
-# MLFlow Configuration
-MLFLOW_TRACKING_URI=http://mlflow:5000
-
-# Drift Monitoring Configuration (opcional)
-DRIFT_CHECK_INTERVAL_HOURS=6
-DRIFT_MONITORING_WINDOW_HOURS=24
-DRIFT_PERFORMANCE_THRESHOLD=0.15
-```
-
-### Verificación Post-Despliegue
-
-```bash
-# 1. Health check
-curl http://localhost:8000/health
-
-# 2. Verificar modelos disponibles
-curl http://localhost:8000/health | jq .models_available
-
-# 3. Predicción de prueba
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{
-    "features": {"temperature": 23.5, "humidity": 65.2, ...}
-  }'
-
-# 4. Estado del drift monitoring
-curl "http://localhost:8000/monitoring/drift/status?zone=1"
-```
-
-## Endpoints de la API
-
-### API Principal
-
-- **POST** `/predict` - Realizar predicción de consumo eléctrico
-- **GET** `/health` - Health check y modelos disponibles
-
-### Esquema de predicción (FastAPI / OpenAPI / Postman)
-
-Los modelos Pydantic viven en `api/schemas.py` y son exactamente los que FastAPI publica en Swagger (`/docs`) y en el JSON de OpenAPI (`/openapi.json`, importable desde Postman con *Import → Raw text*). A modo de referencia rápida:
-
-#### `POST /predict` → `PredictionRequest`
-
-- **features** (`object`, requerido): Diccionario `str → float` con todas las variables que consume el modelo champion (temporales: `hour`, `dayofweek`, `month`; meteorológicas: `temperature`, `humidity`, `wind_speed`; rezagos/rolling como `lag_zone_1_power_consumption_1_hora`).
-- **Validación**: El diccionario no puede estar vacío; FastAPI devolverá `422 ValidationError` si falta, y cualquier clave desconocida se ignora pero queda registrada en logs.
-- **Ejemplo JSON**:
-
-```json
-{
-  "features": {
-    "temperature": 23.5,
-    "humidity": 65.2,
-    "wind_speed": 5.3,
-    "general_diffuse_flows": 120.5,
-    "diffuse_flows": 80.3,
-    "hora": 14,
-    "dia_de_semana": 2,
-    "lag_zone_1_power_consumption_1_hora": 25000.0,
-    "rolling_mean_zone_1_power_consumption_24_horas": 24800.0
-  }
-}
-```
-
-#### Respuesta exitosa → `PredictionResponse`
-
-- **model_name** (`string`): Nombre del modelo champion cargado (coincide con los archivos `models/*_version_XX_champion.pkl`).
-- **prediction** (`number`): Consumo estimado en kW.
-- **timestamp** (`string`, ISO 8601): Instante en que se ejecuta la inferencia.
-- **features_used** (`array[string]`): Lista exacta de features aplicadas por el pipeline para auditar requests de Postman/Swagger.
-
-```json
-{
-  "model_name": "powerTetouan_RF_zone_1_version_02_champion",
-  "prediction": 25432.18,
-  "timestamp": "2025-01-15T14:30:00",
-  "features_used": [
-    "temperature",
-    "humidity",
-    "wind_speed",
-    "hour",
-    "dayofweek",
-    "zone_1_power_consumption_lag6"
-  ]
-}
-```
-
-#### Respuesta de error → `ErrorResponse`
-
-- **error** (`string`): Código (`ValidationError`, `ModelNotLoaded`, etc.).
-- **message** (`string`): Descripción legible.
-- **detail** (`object|string`, opcional): Datos adicionales cuando FastAPI rechaza el payload.
-
-#### Otros esquemas publicados
-
-- `ActualValueRequest` / `ActualValueResponse`: Para `/monitoring/actual`, cuerpo `{"zone": 1, "actual_value": 25432.1, "timestamp": "..."}`.
-- `DriftStatusResponse` y `DriftCheckResponse`: Devueltos por los endpoints de monitoreo con resumen de métricas y recomendaciones.
-
-> Desde Postman basta con descargar `http://localhost:8000/openapi.json` y cargarlo como colección para ver automáticamente estos esquemas.
-> Antes de enviar requests desde la colección provista en `docs/postman/`, actualiza la variable de entorno `champion_zone` del archivo `local_environment.postman_environment.json` con la zona que reporte `/health` para el modelo champion vigente.
-
-### Drift Monitoring
-
-- **GET** `/monitoring/drift/status` - Estado actual del monitoreo de drift del modelo champion
-  - Query params: `zone` (int)
-- **POST** `/monitoring/actual` - Registrar valor real observado
-  - Body: `{"zone": int, "actual_value": float, "timestamp": str}`
-- **POST** `/monitoring/drift/check` - Ejecutar chequeo manual de drift del modelo champion
-  - Query params: `zone` (int)
-
-### MLFlow
-
-- **MLFlow UI**: http://localhost:5001 - Tracking de experimentos y modelos
-- Los artefactos se guardan en `./mlruns` (volumen local compartido con el contenedor) para mantener todo en la misma base SQLite.
-- El modelo champion se copia automáticamente en `models/*champion*.pkl`.
-
-### Documentación Detallada
-
-**Documentación de la API:**
-- **Swagger UI**: http://localhost:8000/docs
-- **Código fuente**: `api/` (main.py, schemas.py, predictor.py, drift_monitor.py)
-
-**Documentación de Docker:**
-- **Guía completa**: [docs/Docker.md](docs/Docker.md)
-
-**Documentación de Drift Monitoring:**
-- **Sistema completo**: [docs/Drift_Monitoring.md](docs/Drift_Monitoring.md)
-- **Resumen de implementación**: [docs/Drift_Monitoring_Implementation.md](docs/Drift_Monitoring_Implementation.md)
