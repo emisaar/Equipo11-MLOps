@@ -19,16 +19,21 @@ services:
       # Allow access from Docker network (disable strict host checking)
       - MLFLOW_ALLOWED_HOSTS=*
 
+      # AWS credentials para S3
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-2}
+
     volumes:
       # SQLite database + cache local
       - mlflow_data:/mlflow
-      # Artefactos locales persistidos en el host
+      # Artefactos locales como fallback
       - ./mlruns:/mlflow/artifacts
 
     command: >
       mlflow server
       --backend-store-uri sqlite:///mlflow/mlflow.db
-      --default-artifact-root ${MLFLOW_ARTIFACT_ROOT:-file:///mlflow/artifacts}
+      --default-artifact-root s3://${AWS_S3_BUCKET:-itesm-mna/202502-equipo11}/mlflow-artifacts
       --host 0.0.0.0
       --port 5000
       --workers 4

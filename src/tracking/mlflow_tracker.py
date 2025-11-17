@@ -183,12 +183,15 @@ class MLflowTracker:
         if est is not None:
             try:
                 mlflow.sklearn.log_model(est, artifact_path="model", registered_model_name=reg_name)
+                print(f"Modelo {reg_name} registrado exitosamente")
                 return
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Error al registrar {reg_name} como sklearn: {e}")
         try:
             mlflow.pyfunc.log_model(artifact_path="model", python_model=_WrapperPyfunc(obj), registered_model_name=reg_name)
-        except Exception:
+            print(f"Modelo {reg_name} registrado como pyfunc")
+        except Exception as e:
+            print(f"Error al registrar {reg_name} como pyfunc: {e}")
             try:
                 tmp_params = {}
                 if hasattr(obj, "get_params"):
@@ -625,38 +628,38 @@ class MLflowTracker:
             # Registrar/Versionar también usando _register_models
             self._register_models(models)
 
-            # Seleccionar champion global dentro del experimento
+            # Seleccionar champions por zona
             try:
-                champion_info = self.promote_best_run_to_champion(
+                print("\nIdentificando modelos champion por zona...")
+                champions_summary = self.evaluate_existing_runs_and_set_champions(
                     metric_name=self.champion_metric_name,
                     higher_is_better=self.champion_higher_is_better,
                     models_dir=models_dir,
                 )
-                if champion_info:
-                    print(f"\nModelo Champion identificado:")
-                    print(f"  Nombre: {champion_info['model_name']}")
-                    print(f"  Versión: {champion_info['version']}")
-                    print(f"  {champion_info['metric']}: {champion_info['value']:.4f}")
-            except Exception:
-                pass
+                if champions_summary.get("best_by_zone"):
+                    print("\nModelos Champion por zona:")
+                    for zone, info in champions_summary["best_by_zone"].items():
+                        print(f"  {zone}: {info['model_name']} ({self.champion_metric_name}={info['metric']:.4f})")
+            except Exception as e:
+                print(f"  Advertencia: Error al identificar champions: {e}")
 
     def evaluate_existing_runs_and_set_champions(
         self,
         *,
         metric_name: str = "RMSE",
         higher_is_better: bool = False,
+        models_dir: Optional[Path] = None,
     ) -> Dict[str, Any]:
-        """Evalúa corridas existentes del experimento y define campeones.
+        """Evalúa corridas existentes del experimento y define campeones por zona.
 
         - Busca corridas finalizadas con `tags.stage = evaluate` y `tags.zone`.
         - Selecciona, por zona, el run con mejor métrica.
-        - Selecciona un campeón global considerando todas las zonas.
-        - Etiqueta estos runs y, si es posible, asigna alias en el Registry:
-          `champion` (por zona) y `overall_champion` (global).
+        - Etiqueta estos runs y asigna alias `champion` en el Registry.
+        - Guarda físicamente los modelos champion por zona.
 
-        Retorna un resumen con los campeones seleccionados.
+        Retorna un resumen con los campeones seleccionados por zona.
         """
-        summary: Dict[str, Any] = {"best_by_zone": {}, "best_overall": None}
+        summary: Dict[str, Any] = {"best_by_zone": {}}
         if not self.enabled or mlflow is None:
             return summary
 
@@ -689,7 +692,6 @@ class MLflowTracker:
             runs = []
 
         best_by_zone: Dict[str, Any] = {}
-        best_overall: Optional[Dict[str, Any]] = None
         for r in runs:
             zone = r.data.tags.get("zone")
             model_name = r.data.tags.get("model_name")
@@ -702,11 +704,6 @@ class MLflowTracker:
             )
             if current is None or better:
                 best_by_zone[zone] = {"run_id": r.info.run_id, "metric": val, "model_name": model_name}
-            if best_overall is None:
-                best_overall = {"run_id": r.info.run_id, "metric": val, "model_name": model_name, "zone": zone}
-            else:
-                if (higher_is_better and val > best_overall["metric"]) or ((not higher_is_better) and val < best_overall["metric"]):
-                    best_overall = {"run_id": r.info.run_id, "metric": val, "model_name": model_name, "zone": zone}
 
         # Etiquetado y alias por zona
         for zone, info in best_by_zone.items():
@@ -718,6 +715,10 @@ class MLflowTracker:
                 client.set_tag(run_id, "champion.value", str(info["metric"]))
             except Exception:
                 pass
+
+            # Buscar versión del modelo y asignar alias
+            version_to_promote = None
+            reg_name = None
             try:
                 versions = client.search_model_versions(f"run_id = '{run_id}'")
                 for mv in versions:
@@ -725,32 +726,39 @@ class MLflowTracker:
                         client.set_model_version_tag(mv.name, mv.version, "champion", "true")
                         client.set_registered_model_alias(mv.name, alias="champion", version=mv.version)
                         client.transition_model_version_stage(mv.name, mv.version, stage="Staging", archive_existing_versions=False)
+                        version_to_promote = mv.version
+                        reg_name = mv.name
                     except Exception:
                         continue
             except Exception:
                 pass
 
-        # Alias global overall_champion
-        if best_overall is not None:
-            run_id = best_overall["run_id"]
-            try:
-                client.set_tag(run_id, "overall_champion", "true")
-                client.set_tag(run_id, "overall.metric", metric_name)
-                client.set_tag(run_id, "overall.value", str(best_overall["metric"]))
-                client.set_tag(run_id, "overall.zone", str(best_overall.get("zone")))
-            except Exception:
-                pass
-            try:
-                versions = client.search_model_versions(f"run_id = '{run_id}'")
-                for mv in versions:
-                    try:
-                        client.set_registered_model_alias(mv.name, alias="overall_champion", version=mv.version)
-                    except Exception:
-                        continue
-            except Exception:
-                pass
+            # Guardar el modelo físicamente con sufijo _champion por zona
+            if models_dir is not None and version_to_promote is not None and reg_name is not None:
+                try:
+                    import joblib
+                    model_uri = f"models:/{reg_name}@champion"
+                    champion_model = mlflow.sklearn.load_model(model_uri)
+
+                    # Crear nombre del archivo con zona y sufijo _champion
+                    champion_path = models_dir / f"{reg_name}_champion.pkl"
+                    models_dir.mkdir(parents=True, exist_ok=True)
+
+                    # Eliminar versiones anteriores del champion para esta zona
+                    stale_candidates = list(models_dir.glob(f"{reg_name}_version_*_champion.pkl"))
+                    for stale_file in stale_candidates:
+                        if stale_file.exists():
+                            try:
+                                stale_file.unlink()
+                            except FileNotFoundError:
+                                pass
+
+                    # Guardar el modelo
+                    joblib.dump(champion_model, champion_path)
+                    print(f"  Modelo champion para {zone} guardado en: {champion_path}")
+                except Exception as e:
+                    print(f"  Advertencia: No se pudo guardar el modelo champion para {zone}: {e}")
 
         summary["best_by_zone"] = best_by_zone
-        summary["best_overall"] = best_overall
         return summary
 

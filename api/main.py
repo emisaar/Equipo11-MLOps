@@ -167,7 +167,7 @@ async def root():
             "predict": {
                 "method": "POST",
                 "path": "/predict",
-                "description": "Realizar predicción de consumo eléctrico"
+                "description": "Realizar predicción de consumo eléctrico para una zona específica"
             },
             "health": {
                 "method": "GET",
@@ -231,7 +231,7 @@ async def health_check():
     "/predict",
     response_model=PredictionResponse,
     summary="Realizar Predicción",
-    description="Realiza una predicción de consumo eléctrico usando el modelo champion desplegado",
+    description="Realiza una predicción de consumo eléctrico usando el modelo champion de la zona especificada",
     tags=["Predicción"],
     responses={
         200: {
@@ -254,15 +254,15 @@ async def health_check():
 )
 async def predict(request: PredictionRequest):
     """
-    Realiza una predicción de consumo eléctrico usando el modelo champion.
+    Realiza una predicción de consumo eléctrico usando el modelo champion de la zona especificada.
 
-    Este endpoint recibe las features de entrada y retorna la predicción
-    del consumo eléctrico usando el mejor modelo desplegado (champion).
+    Este endpoint recibe la zona y las features de entrada, y retorna la predicción
+    del consumo eléctrico usando el mejor modelo desplegado (champion) para esa zona.
 
     Parameters
     ----------
     request : PredictionRequest
-        Solicitud con features
+        Solicitud con zona y features
 
     Returns
     -------
@@ -284,13 +284,14 @@ async def predict(request: PredictionRequest):
     response = requests.post(
         "http://localhost:8000/predict",
         json={
+            "zone": 1,
             "features": {
                 "temperature": 23.5,
                 "humidity": 65.2,
                 "hour": 14,
                 "dayofweek": 2,
                 "month": 6,
-                "zone_1_power_consumption_lag6": 25000.0
+                "lag_power_consumption_1_hora": 25000.0
             }
         }
     )
@@ -298,9 +299,10 @@ async def predict(request: PredictionRequest):
     ```
     """
     try:
-        # Ejecutar predicción con modelo champion
+        # Ejecutar predicción con modelo champion de la zona
         active_predictor = ensure_predictor_ready()
         result = active_predictor.predict_with_champion(
+            zone=request.zone,
             features=request.features
         )
 
@@ -315,14 +317,11 @@ async def predict(request: PredictionRequest):
         )
 
         # Intentar registrar en el sistema de monitoreo
-        # (nota: el monitoreo ahora no tiene zona/model_type específicos)
         try:
             prediction_logger = get_prediction_logger()
-            model_name = result.get('model_name')
-            zone = _infer_zone_from_request(model_name, request.features)
 
             prediction_logger.log_prediction(
-                zone=zone,
+                zone=request.zone,
                 model_type=CHAMPION_MODEL_TYPE,
                 features=request.features,
                 prediction=result['prediction'],
@@ -336,7 +335,7 @@ async def predict(request: PredictionRequest):
             logger.error(f"No se pudo registrar la predicción para monitoreo: {log_error}")
 
         logger.info(
-            f"Predicción exitosa con modelo champion - "
+            f"Predicción exitosa con modelo champion zona {request.zone} - "
             f"Modelo: {result.get('model_name', 'champion')}, "
             f"Predicción: {result['prediction']:.2f}"
         )

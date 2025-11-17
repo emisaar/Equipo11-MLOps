@@ -9,8 +9,8 @@ stages:
       size: 4564430
     - path: pipeline/load_data.py
       hash: md5
-      md5: 28779a965c05c8e21c93255211d1c4ce
-      size: 635
+      md5: e1c5637b8665e3df965f59a5c1693eea
+      size: 613
     - path: src/data/database.py
       hash: md5
       md5: c083c250431dcda05e2c683e15dec05c
@@ -21,8 +21,8 @@ stages:
       size: 6486
     - path: src/preprocessing/normalization.py
       hash: md5
-      md5: d5abfad1a1047f110446d459b7549942
-      size: 1479
+      md5: 9a8fd3bb4b906224627361f6d29faaab
+      size: 1421
     params:
       params.yaml:
         data.interim_loaded: data/interim/loaded.parquet
@@ -32,8 +32,8 @@ stages:
     outs:
     - path: data/interim/loaded.parquet
       hash: md5
-      md5: 809da39b675c124f1ec314676c35fcdc
-      size: 2047191
+      md5: 4e3be56f04c2c22edca504654647aa65
+      size: 2048050
   explore_data:
     cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/02_explore_data.py
     deps:
@@ -64,24 +64,24 @@ stages:
     deps:
     - path: data/processed/cleaned.parquet
       hash: md5
-      md5: fe901f05d580dc45014d7b566353c3e2
-      size: 2023603
+      md5: 32a563a56033f32468d2c75a44aaa6cc
+      size: 2024605
     - path: pipeline/preprocess.py
       hash: md5
-      md5: af48c83898b1212ba0fbc5b86ec2e09b
-      size: 944
+      md5: e05fb3fdab4f0934fc0acdff0ee53dc7
+      size: 917
     - path: src/features/engineering.py
       hash: md5
-      md5: 8f82a798b4f74de451165ea91ddd23bc
-      size: 3196
+      md5: 582c88f8c500507d493ebad547a7e315
+      size: 3111
     - path: src/features/preprocessor.py
       hash: md5
-      md5: d2fe8dc88623623437008f3474f58288
-      size: 12956
+      md5: a9430051b181be8fcbafffb47981f78b
+      size: 12633
     - path: src/features/temporal.py
       hash: md5
-      md5: 04a286b24d8d0f6e855e6b22cb3bfdce
-      size: 2165
+      md5: 9a90eec96a3e1d44024634e7634a742c
+      size: 2088
     params:
       params.yaml:
         data.cleaned: data/processed/cleaned.parquet
@@ -98,12 +98,12 @@ stages:
     outs:
     - path: data/processed/test.parquet
       hash: md5
-      md5: adbe5efb6afdd4e8359e6ae270bcf01e
-      size: 885741
+      md5: 9558840d39be77984741f3d9d8c5ac25
+      size: 887309
     - path: data/processed/train.parquet
       hash: md5
-      md5: b7477be76f6ab7fd7060b8dbe3bf8268
-      size: 2092573
+      md5: b4daa8e8950e3e17c8d62dc2b44c30a6
+      size: 2094160
   train_model:
     cmd: cmd /c "set PYTHONPATH=src && python src/pipeline/04_train_model.py
     deps:
@@ -180,32 +180,32 @@ stages:
     deps:
     - path: data/interim/loaded.parquet
       hash: md5
-      md5: 809da39b675c124f1ec314676c35fcdc
-      size: 2047191
+      md5: 4e3be56f04c2c22edca504654647aa65
+      size: 2048050
     - path: pipeline/clean_data.py
       hash: md5
-      md5: cc9a8bab4f9bdad094c29017bcd6da0c
-      size: 634
+      md5: 12696782c0ecda98982925a3a97734b2
+      size: 613
     - path: src/config.py
       hash: md5
-      md5: b35b716708d67c64f11070c202fe70aa
-      size: 3436
+      md5: ef8dd144582490c0d6c4a5a0a6f6d7bf
+      size: 3312
     - path: src/preprocessing/cleaner.py
       hash: md5
-      md5: ef1727a1a0d14ca12043d84ba0297ae3
-      size: 8211
+      md5: d2c79421392782814e5f4b30ea74a8b1
+      size: 7970
     - path: src/preprocessing/imputation.py
       hash: md5
-      md5: 9d0ac834f51d89547f96608567fcf99e
-      size: 1794
+      md5: dbf05f8cf80944e8f3b0cadee7f7a875
+      size: 1730
     - path: src/preprocessing/normalization.py
       hash: md5
-      md5: d5abfad1a1047f110446d459b7549942
-      size: 1479
+      md5: 9a8fd3bb4b906224627361f6d29faaab
+      size: 1421
     - path: src/preprocessing/outliers.py
       hash: md5
-      md5: 83fbc71c53eff4b315117626218cbbea
-      size: 6819
+      md5: c93dc00e11015544aa0a604ce64828aa
+      size: 6654
     params:
       params.yaml:
         data.cleaned: data/processed/cleaned.parquet
@@ -214,31 +214,31 @@ stages:
     outs:
     - path: data/processed/cleaned.parquet
       hash: md5
-      md5: fe901f05d580dc45014d7b566353c3e2
-      size: 2023603
+      md5: 32a563a56033f32468d2c75a44aaa6cc
+      size: 2024605
   train_models:
     cmd: python pipeline/train.py
     deps:
     - path: data/processed/train.parquet
       hash: md5
-      md5: b7477be76f6ab7fd7060b8dbe3bf8268
-      size: 2092573
+      md5: b4daa8e8950e3e17c8d62dc2b44c30a6
+      size: 2094160
     - path: pipeline/train.py
       hash: md5
-      md5: e8bfe89db8bacd51b8b27ad0f937e71c
-      size: 3465
+      md5: 619a41cae611a8b84f92212eb14ae22c
+      size: 3429
     - path: src/modeling/models.py
       hash: md5
-      md5: d68649b15b99a71142bb069ea16e7944
-      size: 29373
+      md5: 4444ee4613304790bf998acb75681968
+      size: 28515
     - path: src/modeling/train.py
       hash: md5
-      md5: 733285c9179e05b44b7a461e9709c94a
-      size: 9221
+      md5: b55c6e66cfe8602d35618af79255d88b
+      size: 8899
     params:
       params.yaml:
         data.train: data/processed/train.parquet
-        mlflow.experiment_name: TetouanCityPower
+        mlflow.experiment_name: TetouanCityPower_S3
         mlflow.run_name: MultiModelComparison
         mlflow.tracking_uri: ${MLFLOW_TRACKING_URI}
         models.lstm:
@@ -332,37 +332,37 @@ stages:
     outs:
     - path: models
       hash: md5
-      md5: 6911e9f03f641c8ebb448387351e5a6a.dir
-      size: 314815242
+      md5: 7cc22744425f911b6a571c74a906d620.dir
+      size: 314807850
       nfiles: 3
   evaluate_models:
     cmd: python pipeline/evaluate.py
     deps:
     - path: data/processed/test.parquet
       hash: md5
-      md5: adbe5efb6afdd4e8359e6ae270bcf01e
-      size: 885741
+      md5: 9558840d39be77984741f3d9d8c5ac25
+      size: 887309
     - path: data/processed/train.parquet
       hash: md5
-      md5: b7477be76f6ab7fd7060b8dbe3bf8268
-      size: 2092573
+      md5: b4daa8e8950e3e17c8d62dc2b44c30a6
+      size: 2094160
     - path: models
       hash: md5
-      md5: ddd7878eb3558beb2e23bd08bc9488e7.dir
-      size: 418822733
-      nfiles: 4
+      md5: 7cc22744425f911b6a571c74a906d620.dir
+      size: 314807850
+      nfiles: 3
     - path: pipeline/evaluate.py
       hash: md5
-      md5: 66e4d51070f677dcc89d4130bdc6d9b3
-      size: 2194
+      md5: cb7102637fee266423375a8c5d1def90
+      size: 2160
     - path: src/modeling/evaluate.py
       hash: md5
-      md5: 7907637154c0d266b5c6104e0c6f08d1
-      size: 13109
+      md5: c66dd90c00faac8666380e487bb6a591
+      size: 12716
     - path: src/visualization/plots.py
       hash: md5
-      md5: 3d37233f007eb7b47afb1a982609c31b
-      size: 10539
+      md5: 9d83e5385169db20d47b9f9988a4e1d7
+      size: 10190
     params:
       params.yaml:
         data.test: data/processed/test.parquet
@@ -371,19 +371,19 @@ stages:
         evaluation.n_steps: 10
         mlflow.champion_higher_is_better: false
         mlflow.champion_metric_name: RMSE
-        mlflow.experiment_name: TetouanCityPower
+        mlflow.experiment_name: TetouanCityPower_S3
         mlflow.run_name: MultiModelComparison
         mlflow.tracking_uri: ${MLFLOW_TRACKING_URI}
         models.output_dir: models
     outs:
     - path: metrics/metrics.json
       hash: md5
-      md5: cdb2de90f3048bb0f947d1a857317d75
-      size: 484
+      md5: 52709b7c874edeeca585a79d1d999da5
+      size: 460
     - path: reports/figures
       hash: md5
-      md5: 71ca405c55d024cc04b6f3bde4caa15b.dir
-      size: 347094
+      md5: f7fefd8d5584c110fdbcfef296e2c8dc.dir
+      size: 317403
       nfiles: 3
   deploy_champion:
     cmd: python pipeline/deploy.py

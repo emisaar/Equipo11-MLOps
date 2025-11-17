@@ -1,0 +1,511 @@
+{
+	"info": {
+		"_postman_id": "1e605141-7d9d-44e0-a293-553f82dfd001",
+		"name": "Tetouan Power Consumption API",
+		"description": "Complete API collection including prediction, health check, and drift monitoring endpoints. Adjust the host/port variables before sending requests.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "23332631",
+		"_collection_link": "https://school-dev-9306.postman.co/workspace/MLOps~b14b0a05-a37c-455f-9231-1b8dbf0a985f/collection/23332631-1e605141-7d9d-44e0-a293-553f82dfd001?action=share&source=collection_link&creator=23332631"
+	},
+	"item": [
+		{
+			"name": "Core API",
+			"item": [
+				{
+					"name": "GET /health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{api_host}}:{{api_port}}/health",
+							"protocol": "http",
+							"host": [
+								"{{api_host}}"
+							],
+							"port": "{{api_port}}",
+							"path": [
+								"health"
+							]
+						},
+						"description": "Health check endpoint that returns service status and available models."
+					},
+					"response": [
+						{
+							"name": "Health check response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{api_host}}:{{api_port}}/health",
+									"protocol": "http",
+									"host": [
+										"{{api_host}}"
+									],
+									"port": "{{api_port}}",
+									"path": [
+										"health"
+									]
+								},
+								"description": "Health check endpoint that returns service status and available models."
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "Text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"status\": \"healthy\",\n  \"models_available\": {\n    \"VAR\": [0],\n    \"RandomForest\": [1, 2, 3],\n    \"XGBoost\": [1, 2, 3]\n  },\n  \"timestamp\": \"2025-01-15T14:30:00\"\n}"
+						}
+					]
+				},
+				{
+					"name": "POST /predict",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"features\": {\n    \"dia_de_semana\": 2,\n    \"dia_del_ano\": 150,\n    \"diffuse_flows\": 80.3,\n    \"general_diffuse_flows\": 120.5,\n    \"hora\": 14,\n    \"humidity\": 65.2,\n    \"lag_power_consumption_1_hora\": 25000,\n    \"lag_power_consumption_24_horas\": 26500,\n    \"minuto\": 30,\n    \"rolling_mean_power_consumption_1_hora\": 25200,\n    \"rolling_mean_power_consumption_24_horas\": 24800,\n    \"temperature\": 23.5,\n    \"wind_speed\": 5.3\n  },\n  \"zone\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8000/predict",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"predict"
+							]
+						},
+						"description": "Generated from cURL: curl -X 'POST' \\\n  'http://localhost:8000/predict' \\\n  -H 'accept: application/json' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n  \"features\": {\n    \"dia_de_semana\": 2,\n    \"dia_del_ano\": 150,\n    \"diffuse_flows\": 80.3,\n    \"general_diffuse_flows\": 120.5,\n    \"hora\": 14,\n    \"humidity\": 65.2,\n    \"lag_power_consumption_1_hora\": 25000,\n    \"lag_power_consumption_24_horas\": 26500,\n    \"minuto\": 30,\n    \"rolling_mean_power_consumption_1_hora\": 25200,\n    \"rolling_mean_power_consumption_24_horas\": 24800,\n    \"temperature\": 23.5,\n    \"wind_speed\": 5.3\n  },\n  \"zone\": 1\n}'"
+					},
+					"response": [
+						{
+							"name": "POST /predict",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "accept",
+										"value": "application/json"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"features\": {\n    \"dia_de_semana\": 2,\n    \"dia_del_ano\": 150,\n    \"diffuse_flows\": 80.3,\n    \"general_diffuse_flows\": 120.5,\n    \"hora\": 14,\n    \"humidity\": 65.2,\n    \"lag_power_consumption_1_hora\": 25000,\n    \"lag_power_consumption_24_horas\": 26500,\n    \"minuto\": 30,\n    \"rolling_mean_power_consumption_1_hora\": 25200,\n    \"rolling_mean_power_consumption_24_horas\": 24800,\n    \"temperature\": 23.5,\n    \"wind_speed\": 5.3\n  },\n  \"zone\": 1\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "http://localhost:8000/predict",
+									"protocol": "http",
+									"host": [
+										"localhost"
+									],
+									"port": "8000",
+									"path": [
+										"predict"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "",
+							"header": [
+								{
+									"key": "date",
+									"value": "Mon, 17 Nov 2025 06:41:15 GMT"
+								},
+								{
+									"key": "server",
+									"value": "uvicorn"
+								},
+								{
+									"key": "content-length",
+									"value": "446"
+								},
+								{
+									"key": "content-type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"model_name\": \"powerTetouan_RF_zone_1_power_consumption\",\n    \"prediction\": 28668.461642524577,\n    \"timestamp\": \"2025-11-17T06:41:15.772684\",\n    \"features_used\": [\n        \"dia_de_semana\",\n        \"dia_del_ano\",\n        \"diffuse_flows\",\n        \"general_diffuse_flows\",\n        \"hora\",\n        \"humidity\",\n        \"lag_zone_1_power_consumption_1_hora\",\n        \"lag_zone_1_power_consumption_24_horas\",\n        \"minuto\",\n        \"rolling_mean_zone_1_power_consumption_1_hora\",\n        \"rolling_mean_zone_1_power_consumption_24_horas\",\n        \"temperature\",\n        \"wind_speed\"\n    ]\n}"
+						}
+					]
+				}
+			],
+			"description": "Core prediction and health check endpoints"
+		},
+		{
+			"name": "Drift Monitoring",
+			"item": [
+				{
+					"name": "GET /monitoring/drift/status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{api_host}}:{{api_port}}/monitoring/drift/status?zone=1",
+							"protocol": "http",
+							"host": [
+								"{{api_host}}"
+							],
+							"port": "{{api_port}}",
+							"path": [
+								"monitoring",
+								"drift",
+								"status"
+							],
+							"query": [
+								{
+									"key": "zone",
+									"value": "1",
+									"description": "Zone number (1, 2, or 3)"
+								}
+							]
+						},
+						"description": "Get the current status of drift monitoring for a specific zone. The API always evaluates the deployed champion model, so there's no need to select a model type. Returns the last time a check was executed, time remaining for the next window, and a summary of the latest report (if available)."
+					},
+					"response": [
+						{
+							"name": "Drift status response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{api_host}}:{{api_port}}/monitoring/drift/status?zone=1",
+									"protocol": "http",
+									"host": [
+										"{{api_host}}"
+									],
+									"port": "{{api_port}}",
+									"path": [
+										"monitoring",
+										"drift",
+										"status"
+									],
+									"query": [
+										{
+											"key": "zone",
+											"value": "1",
+											"description": "Zone number (1, 2, or 3)"
+										}
+									]
+								},
+								"description": "Get the current status of drift monitoring for a specific zone. The API always evaluates the deployed champion model, so there's no need to select a model type. Returns the last time a check was executed, time remaining for the next window, and a summary of the latest report (if available)."
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "Text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"zone\": 1,\n  \"model_type\": \"Champion\",\n  \"needs_drift_check\": false,\n  \"last_check_time\": \"2025-01-15T12:00:00\",\n  \"next_check_in_hours\": 3.75,\n  \"latest_report_summary\": {\n    \"timestamp\": \"2025-01-15T12:00:00\",\n    \"reference_period\": \"7 days ago (24h window)\",\n    \"current_period\": \"Last 24 hours\",\n    \"total_alerts\": 2,\n    \"severity_breakdown\": {\n      \"HIGH\": 1,\n      \"MEDIUM\": 1\n    },\n    \"drift_type_breakdown\": {\n      \"feature_drift\": 1,\n      \"performance_drift\": 1\n    },\n    \"has_critical_alerts\": false,\n    \"has_high_alerts\": true,\n    \"requires_action\": true\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "POST /monitoring/actual",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"zone\": 1,\n  \"actual_value\": 28500.0,\n  \"timestamp\": \"2025-01-15T14:30:00\"\n}"
+						},
+						"url": {
+							"raw": "http://{{api_host}}:{{api_port}}/monitoring/actual",
+							"protocol": "http",
+							"host": [
+								"{{api_host}}"
+							],
+							"port": "{{api_port}}",
+							"path": [
+								"monitoring",
+								"actual"
+							]
+						},
+						"description": "Log an actual observed value for drift monitoring. If `timestamp` is omitted, the API uses the current time. This enables comparisons between logged predictions and observed values to detect performance drift."
+					},
+					"response": [
+						{
+							"name": "Actual value logged",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"zone\": 1,\n  \"actual_value\": 28500.0,\n  \"timestamp\": \"2025-01-15T14:30:00\"\n}"
+								},
+								"url": {
+									"raw": "http://{{api_host}}:{{api_port}}/monitoring/actual",
+									"protocol": "http",
+									"host": [
+										"{{api_host}}"
+									],
+									"port": "{{api_port}}",
+									"path": [
+										"monitoring",
+										"actual"
+									]
+								},
+								"description": "Log an actual observed value for drift monitoring. If `timestamp` is omitted, the API uses the current time. This enables comparisons between logged predictions and observed values to detect performance drift."
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "Text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"status\": \"success\",\n  \"message\": \"Valor real registrado exitosamente\",\n  \"zone\": 1,\n  \"actual_value\": 28500.0,\n  \"timestamp\": \"2025-01-15T14:30:00\"\n}"
+						}
+					]
+				},
+				{
+					"name": "POST /monitoring/drift/check",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "http://{{api_host}}:{{api_port}}/monitoring/drift/check?zone=1",
+							"protocol": "http",
+							"host": [
+								"{{api_host}}"
+							],
+							"port": "{{api_port}}",
+							"path": [
+								"monitoring",
+								"drift",
+								"check"
+							],
+							"query": [
+								{
+									"key": "zone",
+									"value": "1",
+									"description": "Zone number (1, 2, or 3)"
+								}
+							]
+						},
+						"description": "Manually trigger a drift check for a specific zone. The champion model is evaluated automatically, so no model selector is needed. This call analyzes recent predictions vs baseline data to detect statistical, temporal, and performance drift."
+					},
+					"response": [
+						{
+							"name": "Drift check completed",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "http://{{api_host}}:{{api_port}}/monitoring/drift/check?zone=1",
+									"protocol": "http",
+									"host": [
+										"{{api_host}}"
+									],
+									"port": "{{api_port}}",
+									"path": [
+										"monitoring",
+										"drift",
+										"check"
+									],
+									"query": [
+										{
+											"key": "zone",
+											"value": "1",
+											"description": "Zone number (1, 2, or 3)"
+										}
+									]
+								},
+								"description": "Manually trigger a drift check for a specific zone. The champion model is evaluated automatically, so no model selector is needed. This call analyzes recent predictions vs baseline data to detect statistical, temporal, and performance drift."
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "Text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"status\": \"success\",\n  \"message\": \"Chequeo de drift completado\",\n  \"zone\": 1,\n  \"model_type\": \"Champion\",\n  \"summary\": {\n    \"timestamp\": \"2025-01-15T14:35:00\",\n    \"total_alerts\": 3,\n    \"severity_breakdown\": {\n      \"HIGH\": 1,\n      \"MEDIUM\": 2\n    },\n    \"drift_type_breakdown\": {\n      \"performance_drift\": 1,\n      \"temporal_drift\": 1\n    },\n    \"has_critical_alerts\": false,\n    \"has_high_alerts\": true,\n    \"requires_action\": true\n  },\n  \"recommendations\": [\n    \"Schedule model retraining within 24-48 hours\",\n    \"Review feature engineering pipeline for potential issues\"\n  ]\n}"
+						},
+						{
+							"name": "No drift detected",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "http://{{api_host}}:{{api_port}}/monitoring/drift/check?zone=1",
+									"protocol": "http",
+									"host": [
+										"{{api_host}}"
+									],
+									"port": "{{api_port}}",
+									"path": [
+										"monitoring",
+										"drift",
+										"check"
+									],
+									"query": [
+										{
+											"key": "zone",
+											"value": "1",
+											"description": "Zone number (1, 2, or 3)"
+										}
+									]
+								},
+								"description": "Manually trigger a drift check for a specific zone. The champion model is evaluated automatically, so no model selector is needed. This call analyzes recent predictions vs baseline data to detect statistical, temporal, and performance drift."
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "Text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"status\": \"success\",\n  \"message\": \"Chequeo de drift completado\",\n  \"zone\": 1,\n  \"model_type\": \"Champion\",\n  \"summary\": {\n    \"timestamp\": \"2025-01-15T14:35:00\",\n    \"total_alerts\": 0,\n    \"severity_breakdown\": {},\n    \"drift_type_breakdown\": {},\n    \"has_critical_alerts\": false,\n    \"has_high_alerts\": false,\n    \"requires_action\": false\n  },\n  \"recommendations\": [\n    \"No significant drift detected - model performing as expected\"\n  ]\n}"
+						},
+						{
+							"name": "Insufficient data",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "http://{{api_host}}:{{api_port}}/monitoring/drift/check?zone=1",
+									"protocol": "http",
+									"host": [
+										"{{api_host}}"
+									],
+									"port": "{{api_port}}",
+									"path": [
+										"monitoring",
+										"drift",
+										"check"
+									],
+									"query": [
+										{
+											"key": "zone",
+											"value": "1",
+											"description": "Zone number (1, 2, or 3)"
+										}
+									]
+								},
+								"description": "Manually trigger a drift check for a specific zone. The champion model is evaluated automatically, so no model selector is needed. This call analyzes recent predictions vs baseline data to detect statistical, temporal, and performance drift."
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "Text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"status\": \"insufficient_data\",\n  \"message\": \"Datos insuficientes para ejecutar el monitoreo\",\n  \"zone\": 1,\n  \"model_type\": \"Champion\"\n}"
+						},
+						{
+							"name": "Error during drift check",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "http://{{api_host}}:{{api_port}}/monitoring/drift/check?zone=1",
+									"protocol": "http",
+									"host": [
+										"{{api_host}}"
+									],
+									"port": "{{api_port}}",
+									"path": [
+										"monitoring",
+										"drift",
+										"check"
+									],
+									"query": [
+										{
+											"key": "zone",
+											"value": "1",
+											"description": "Zone number (1, 2, or 3)"
+										}
+									]
+								},
+								"description": "Manually trigger a drift check for a specific zone. The champion model is evaluated automatically, so no model selector is needed. This call analyzes recent predictions vs baseline data to detect statistical, temporal, and performance drift."
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "Text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"status\": \"error\",\n  \"message\": \"Error: Monitoring not initialized\",\n  \"zone\": 1,\n  \"model_type\": \"Champion\"\n}"
+						}
+					]
+				}
+			],
+			"description": "Endpoints for real-time drift monitoring, including status checks, logging actual values, and triggering manual drift analysis."
+		}
+	],
+	"variable": [
+		{
+			"key": "api_host",
+			"value": "localhost",
+			"description": "Host where the prediction API is running"
+		},
+		{
+			"key": "api_port",
+			"value": "8000",
+			"description": "Port that `uvicorn` binds to in development mode"
+		}
+	]
+}

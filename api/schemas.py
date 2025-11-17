@@ -11,11 +11,12 @@ class PredictionRequest(BaseModel):
     """
     Esquema de solicitud para predicción de consumo eléctrico.
 
-    La API utiliza automáticamente el modelo champion desplegado,
-    sin necesidad de especificar zona o tipo de modelo.
+    La API utiliza el modelo champion desplegado correspondiente a la zona especificada.
 
     Attributes
     ----------
+    zone : int
+        Zona de consumo eléctrico (1, 2 o 3)
     features : Dict[str, float]
         Diccionario con las features requeridas por el modelo.
         Las features típicamente incluyen:
@@ -24,9 +25,19 @@ class PredictionRequest(BaseModel):
         - Lags: zone_X_power_consumption_lag6, zone_X_power_consumption_lag144, etc.
     """
 
+    zone: int = Field(
+        ...,
+        ge=1,
+        le=3,
+        description="Zona de consumo eléctrico (1, 2 o 3)"
+    )
     features: Dict[str, float] = Field(
         ...,
-        description="Diccionario con las features requeridas por el modelo champion"
+        description=(
+            "Diccionario con las features requeridas por el modelo champion. "
+            "Las features dinámicas (lags, rolling means) deben especificarse sin el número de zona, "
+            "ya que se construirán automáticamente según la zona indicada."
+        )
     )
 
     @field_validator('features')
@@ -41,6 +52,7 @@ class PredictionRequest(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
+                    "zone": 1,
                     "features": {
                         "temperature": 23.5,
                         "humidity": 65.2,
@@ -51,10 +63,10 @@ class PredictionRequest(BaseModel):
                         "minuto": 30,
                         "dia_de_semana": 2,
                         "dia_del_ano": 150,
-                        "lag_zone_1_power_consumption_1_hora": 25000.0,
-                        "lag_zone_1_power_consumption_24_horas": 26500.0,
-                        "rolling_mean_zone_1_power_consumption_1_hora": 25200.0,
-                        "rolling_mean_zone_1_power_consumption_24_horas": 24800.0
+                        "lag_power_consumption_1_hora": 25000.0,
+                        "lag_power_consumption_24_horas": 26500.0,
+                        "rolling_mean_power_consumption_1_hora": 25200.0,
+                        "rolling_mean_power_consumption_24_horas": 24800.0
                     }
                 }
             ]

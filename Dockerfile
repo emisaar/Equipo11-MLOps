@@ -71,18 +71,13 @@ COPY api ./api
 COPY src ./src
 
 # Crear directorios necesarios para monitoreo de drift y modelos
+# NOTA: /app/models se usa como cache local, los modelos se cargan dinámicamente desde MLflow/S3
 RUN mkdir -p \
     /app/logs/predictions \
     /app/reports/drift_monitoring \
     /app/reports/realtime_drift_monitoring \
     /app/models \
     && chmod -R 755 /app/logs /app/reports /app/models
-
-# Copiar directorio de modelos (vacío por .dockerignore)
-COPY models/ ./models/
-
-# Copiar explícitamente modelo champion (excepción a .dockerignore)
-COPY --chown=root:root models/*champion*.pkl ./models/
 
 # Instalar proyecto en modo editable ANTES de cambiar al usuario no-root
 RUN pip install --no-cache-dir -e .

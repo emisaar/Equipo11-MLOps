@@ -85,7 +85,7 @@ evaluation:
 mlflow:
   mlflow_enabled: true
   tracking_uri: ${MLFLOW_TRACKING_URI}
-  experiment_name: TetouanCityPower
+  experiment_name: TetouanCityPower_S3
   run_name: MultiModelComparison
   # Selección de champion
   champion_metric_name: RMSE
