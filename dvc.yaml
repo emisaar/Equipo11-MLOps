@@ -99,14 +99,3 @@
     metrics:
       - ${evaluation.metrics_output}:
           cache: false
-
-  deploy_champion:
-    cmd: python pipeline/deploy.py
-    deps:
-      - pipeline/deploy.py
-      - ${models.output_dir}
-      - ${evaluation.metrics_output}
-      - scripts/setup-docker-hub.sh
-    params:
-      - models.output_dir
-
