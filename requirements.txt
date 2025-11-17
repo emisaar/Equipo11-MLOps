@@ -51,5 +51,6 @@ colorama==0.4.6
 # y statsmodels 0.14.5 (requires >=21.3)
 packaging>=21.3,<25
 
-# AWS CLI for S3 access
-awscli==1.42.74
+# AWS SDK for Python (boto3 viene incluido con dvc-s3 via aiobotocore)
+# awscli removido para evitar conflictos de dependencias con aiobotocore
+# Si necesitas AWS CLI, instálalo globalmente: pip install awscli
