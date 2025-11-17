@@ -33,6 +33,7 @@ class ModelPredictor:
 
     Esta clase descarga modelos champion desde MLFlow Registry (almacenados en S3),
     los cachea en memoria para mejorar el rendimiento, y ejecuta predicciones.
+    Los modelos se cargan dinámicamente según la zona solicitada.
 
     Attributes
     ----------
@@ -41,11 +42,9 @@ class ModelPredictor:
     mlflow_client : MlflowClient
         Cliente de MLFlow para interactuar con el Registry
     models_cache : Dict[str, Any]
-        Cache de modelos cargados en memoria
-    champion_model : Any
-        Modelo champion cargado (mejor modelo global)
-    champion_model_name : str
-        Nombre del modelo champion
+        Cache de modelos cargados en memoria (por zona)
+    models_dir : Path
+        Directorio donde se buscan modelos locales
     """
 
     def __init__(self, models_dir: str = "models", mlflow_uri: str = None):
@@ -69,8 +68,6 @@ class ModelPredictor:
         self.mlflow_client = MlflowClient()
         self.models_cache: Dict[str, Any] = {}
         self.models_dir = Path(models_dir)
-        self.champion_model = None
-        self.champion_model_name = None
 
         # Cache para modelos disponibles y flag para evitar reintentos de MLflow
         self._available_models_cache: Dict[str, Any] = {}
@@ -79,9 +76,10 @@ class ModelPredictor:
         logger.info(f"ModelPredictor inicializado")
         logger.info(f"MLFlow Server: {self.mlflow_uri}")
         logger.info(f"Directorio de modelos: {self.models_dir}")
-
-        # Cargar modelo champion al inicializar
-        self._load_champion_model()
+        logger.info(
+            "Predictor inicializado. Los modelos champion se cargarán "
+            "dinámicamente desde MLflow/S3 según la zona solicitada."
+        )
 
     def _get_registry_name(self, zone: int, model_type: str) -> str:
         """
@@ -130,85 +128,143 @@ class ModelPredictor:
 
         return f"powerTetouan_{model_prefix}_zone_{zone}_power_consumption"
 
-    def _load_champion_model(self) -> None:
+    def _load_zone_champion(self, zone: int) -> Any:
         """
-        Carga el modelo champion desde el directorio de modelos.
+        Carga el modelo champion específico de una zona.
 
-        Busca archivos con sufijo _champion.pkl en el directorio de modelos
-        y carga el primero que encuentre.
+        Intenta cargar en este orden:
+        1. Desde cache en memoria
+        2. Desde archivos locales (*_zone_X_*_champion.pkl)
+        3. Desde MLflow Registry con alias 'champion'
+
+        Parameters
+        ----------
+        zone : int
+            Zona de consumo (1, 2 o 3)
+
+        Returns
+        -------
+        Any
+            Modelo sklearn cargado o None si no se encuentra
         """
+        # Generar clave de cache
+        cache_key = f"champion_zone_{zone}"
+
+        # 1. Verificar cache en memoria
+        if cache_key in self.models_cache:
+            logger.info(f"• Modelo champion zona {zone} cargado desde cache")
+            return self.models_cache[cache_key]
+
+        # 2. Buscar en archivos locales
+        if self.models_dir.exists():
+            # Buscar archivos del patrón: *_zone_X_*_champion.pkl
+            champion_files = list(self.models_dir.glob(f"*_zone_{zone}_*_champion.pkl"))
+
+            if champion_files:
+                try:
+                    import joblib
+                    champion_path = champion_files[0]  # Usar el primero encontrado
+                    model = joblib.load(champion_path)
+
+                    # Guardar en cache
+                    self.models_cache[cache_key] = model
+
+                    logger.info(f"• Modelo champion zona {zone} cargado desde: {champion_path}")
+                    return model
+                except Exception as e:
+                    logger.warning(f"Error al cargar modelo champion local zona {zone}: {e}")
+
+        # 3. Intentar cargar desde MLflow Registry
         try:
-            import joblib
-
-            # Buscar archivos _champion.pkl en el directorio
-            if not self.models_dir.exists():
-                logger.warning(f"Directorio de modelos no existe: {self.models_dir}")
-                logger.info("Intentando cargar desde MLFlow Registry...")
-                self._load_champion_from_mlflow()
-                return
-
-            champion_files = list(self.models_dir.glob("*_champion.pkl"))
-
-            if not champion_files:
-                logger.warning("No se encontró modelo champion local")
-                logger.info("Intentando cargar desde MLFlow Registry...")
-                self._load_champion_from_mlflow()
-                return
-
-            # Usar el primer modelo champion encontrado
-            champion_path = champion_files[0]
-            self.champion_model = joblib.load(champion_path)
-            self.champion_model_name = champion_path.stem.replace("_champion", "")
-
-            logger.info(f"✓ Modelo champion cargado desde: {champion_path}")
-            logger.info(f"  Nombre del modelo: {self.champion_model_name}")
-
-        except Exception as e:
-            logger.error(f"Error al cargar modelo champion: {e}")
-            logger.info("Intentando cargar desde MLFlow Registry...")
-            self._load_champion_from_mlflow()
-
-    def _load_champion_from_mlflow(self) -> None:
-        """
-        Carga el modelo champion desde MLFlow Registry usando el alias 'overall_champion'.
-        """
-        try:
-            # Buscar modelos con alias 'overall_champion' o 'champion'
+            # Buscar modelos registrados para esta zona con alias 'champion'
             registered_models = self.mlflow_client.search_registered_models(
-                filter_string="name LIKE 'powerTetouan_%'"
+                filter_string=f"name LIKE '%zone_{zone}%'"
             )
 
             for rm in registered_models:
                 try:
-                    # Intentar obtener overall_champion primero
-                    champion_version = self.mlflow_client.get_model_version_by_alias(
+                    # Verificar que existe versión con alias 'champion'
+                    self.mlflow_client.get_model_version_by_alias(
                         name=rm.name,
-                        alias="overall_champion"
+                        alias="champion"
                     )
-                    model_uri = f"models:/{rm.name}@overall_champion"
-                    self.champion_model = mlflow.sklearn.load_model(model_uri)
-                    self.champion_model_name = rm.name
-                    logger.info(f"✓ Modelo champion cargado desde MLFlow (overall_champion): {rm.name}")
-                    return
-                except Exception:
-                    # Si no tiene overall_champion, intentar con champion
-                    try:
-                        champion_version = self.mlflow_client.get_model_version_by_alias(
-                            name=rm.name,
-                            alias="champion"
-                        )
-                        model_uri = f"models:/{rm.name}@champion"
-                        self.champion_model = mlflow.sklearn.load_model(model_uri)
-                        self.champion_model_name = rm.name
-                        logger.info(f"✓ Modelo champion cargado desde MLFlow (champion): {rm.name}")
-                        return
-                    except Exception:
-                        continue
 
-            logger.warning("No se encontró modelo champion en MLFlow Registry")
+                    model_uri = f"models:/{rm.name}@champion"
+                    model = mlflow.sklearn.load_model(model_uri)
+
+                    # Guardar en cache
+                    self.models_cache[cache_key] = model
+
+                    logger.info(f"• Modelo champion zona {zone} cargado desde MLFlow: {rm.name}")
+                    return model
+
+                except Exception:
+                    # Este modelo no tiene alias champion, continuar
+                    continue
+
+            logger.warning(f"No se encontró modelo champion para zona {zone} en MLFlow Registry")
 
         except Exception as e:
-            logger.error(f"Error al cargar modelo champion desde MLFlow: {e}")
+            logger.error(f"Error al buscar modelo champion zona {zone} en MLFlow: {e}")
+
+        return None
+
+    def _transform_features_for_zone(
+        self,
+        features: Dict[str, float],
+        zone: int
+    ) -> Dict[str, float]:
+        """
+        Transforma features genéricas agregando el prefijo de zona.
+
+        Las features que requieren transformación son:
+        - lag_power_consumption_* → lag_zone_X_power_consumption_*
+        - rolling_mean_power_consumption_* → rolling_mean_zone_X_power_consumption_*
+
+        Features estáticas (temperature, humidity, etc.) se mantienen sin cambios.
+
+        Parameters
+        ----------
+        features : Dict[str, float]
+            Diccionario con features genéricas
+        zone : int
+            Zona de consumo (1, 2 o 3)
+
+        Returns
+        -------
+        Dict[str, float]
+            Diccionario con features transformadas
+        """
+        transformed = {}
+
+        for feature_name, value in features.items():
+            # Identificar features que necesitan prefijo de zona
+            if feature_name.startswith("lag_") and "power_consumption" in feature_name:
+                # lag_power_consumption_X → lag_zone_1_power_consumption_X
+                new_name = feature_name.replace(
+                    "lag_power_consumption",
+                    f"lag_zone_{zone}_power_consumption"
+                )
+                transformed[new_name] = value
+
+            elif feature_name.startswith("rolling_mean_") and "power_consumption" in feature_name:
+                # rolling_mean_power_consumption_X → rolling_mean_zone_1_power_consumption_X
+                new_name = feature_name.replace(
+                    "rolling_mean_power_consumption",
+                    f"rolling_mean_zone_{zone}_power_consumption"
+                )
+                transformed[new_name] = value
+
+            else:
+                # Features estáticas: mantener sin cambios
+                transformed[feature_name] = value
+
+        logger.debug(
+            f"Features transformadas para zona {zone}: "
+            f"{len(features)} → {len(transformed)} features"
+        )
+
+        return transformed
 
     def load_model(self, zone: int, model_type: str) -> Any:
         """
@@ -239,7 +295,7 @@ class ModelPredictor:
 
         # Si ya está en cache, retornarlo
         if cache_key in self.models_cache:
-            logger.info(f"✓ Modelo cargado desde cache: {cache_key}")
+            logger.info(f"• Modelo cargado desde cache: {cache_key}")
             return self.models_cache[cache_key]
 
         # Construir nombre del modelo en Registry
@@ -340,7 +396,7 @@ class ModelPredictor:
             }
 
             logger.info(
-                f"✓ Predicción exitosa - Zona: {zone}, Modelo: {model_type}, "
+                f"Predicción exitosa - Zona: {zone}, Modelo: {model_type}, "
                 f"Predicción: {prediction:.2f}"
             )
 
@@ -370,16 +426,8 @@ class ModelPredictor:
         if self._available_models_cache:
             return self._available_models_cache
 
-        # Si ya intentamos y falló, retornar info del modelo champion local
+        # Si ya intentamos y falló, retornar caché vacío
         if self._mlflow_attempted:
-            if self.champion_model and self.champion_model_name:
-                return {
-                    self.champion_model_name: {
-                        'champion_version': 'local',
-                        'latest_version': 'local',
-                        'source': 'file_system'
-                    }
-                }
             return {}
 
         # Marcar que ya intentamos conectar a MLflow
@@ -418,32 +466,24 @@ class ModelPredictor:
 
         except Exception as e:
             logger.error(f"Error al obtener modelos disponibles: {str(e)}")
-
-            # Si tenemos modelo champion local, retornar su info
-            if self.champion_model and self.champion_model_name:
-                local_info = {
-                    self.champion_model_name: {
-                        'champion_version': 'local',
-                        'latest_version': 'local',
-                        'source': 'file_system'
-                    }
-                }
-                self._available_models_cache = local_info
-                return local_info
-
             return {}
 
     def predict_with_champion(
         self,
+        zone: int,
         features: Dict[str, float]
     ) -> Dict[str, Any]:
         """
-        Ejecuta predicción con el modelo champion (mejor modelo global).
+        Ejecuta predicción con el modelo champion de la zona especificada.
 
         Parameters
         ----------
+        zone : int
+            Zona de consumo (1, 2 o 3)
         features : Dict[str, float]
-            Diccionario con las features de entrada
+            Diccionario con las features de entrada (sin prefijo de zona).
+            Las features específicas de zona (lags, rolling means) se transformarán
+            automáticamente agregando el prefijo zone_X.
 
         Returns
         -------
@@ -459,14 +499,26 @@ class ModelPredictor:
             Si el modelo champion no está cargado
         InvalidFeaturesError
             Si las features proporcionadas son inválidas
+        ValueError
+            Si la zona es inválida
         """
-        if self.champion_model is None:
+        # Validar zona
+        if zone not in [1, 2, 3]:
+            raise ValueError(f"Zona debe ser 1, 2 o 3. Recibido: {zone}")
+
+        # Cargar modelo champion específico de la zona
+        champion_model = self._load_zone_champion(zone)
+
+        if champion_model is None:
             raise ModelNotFoundError(
-                "Modelo champion no está cargado. Verifica que el modelo esté desplegado correctamente."
+                f"Modelo champion de zona {zone} no está disponible. "
+                "Verifica que el modelo esté desplegado correctamente."
             )
 
         try:
-            df = pd.DataFrame([features])
+            # Transformar features: agregar prefijo de zona a features específicas
+            transformed_features = self._transform_features_for_zone(features, zone)
+            df = pd.DataFrame([transformed_features])
 
             # Verificar que no hay valores nulos
             if df.isnull().any().any():
@@ -476,19 +528,20 @@ class ModelPredictor:
                 )
 
             # Ejecutar predicción
-            prediction = self.champion_model.predict(df)[0]
+            prediction = champion_model.predict(df)[0]
 
-            # Preparar respuesta
-            available_features = list(features.keys())
+            # Preparar respuesta (usar features originales para la respuesta)
+            original_features = list(features.keys())
+            model_name = f"champion_zone_{zone}"
 
             result = {
                 'prediction': float(prediction),
-                'model_name': self.champion_model_name or "champion",
-                'features_used': available_features
+                'model_name': model_name,
+                'features_used': original_features
             }
 
             logger.info(
-                f"✓ Predicción exitosa con modelo champion - "
+                f"Predicción exitosa con modelo champion zona {zone} - "
                 f"Predicción: {prediction:.2f}"
             )
 
@@ -499,7 +552,7 @@ class ModelPredictor:
                 f"Error al acceder a features: {str(e)}"
             ) from e
         except Exception as e:
-            logger.error(f"Error durante la predicción: {str(e)}")
+            logger.error(f"Error durante la predicción zona {zone}: {str(e)}")
             raise
 
     def clear_cache(self):
