@@ -299,9 +299,10 @@ async def predict(request: PredictionRequest):
     ```
     """
     try:
-        # Ejecutar predicción con modelo champion
+        # Ejecutar predicción con modelo champion de la zona
         active_predictor = ensure_predictor_ready()
         result = active_predictor.predict_with_champion(
+            zone=request.zone,
             features=request.features
         )
 
