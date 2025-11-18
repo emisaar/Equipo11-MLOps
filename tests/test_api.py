@@ -95,7 +95,7 @@ class TestPredictEndpoint:
         self, client, valid_features_zone_3
     ):
         """El endpoint /predict debe aceptar features validas (200 o 503 si MLflow no disponible)."""
-        response = client.post("/predict", json={"features": valid_features_zone_3})
+        response = client.post("/predict", json={"zone": 3, "features": valid_features_zone_3})
         # 200 si modelo disponible, 503 si MLflow no esta corriendo
         assert response.status_code in [200, 503]
 
@@ -103,7 +103,7 @@ class TestPredictEndpoint:
         self, client, valid_features_zone_3
     ):
         """El response debe contener campos esperados cuando el modelo esta disponible."""
-        response = client.post("/predict", json={"features": valid_features_zone_3})
+        response = client.post("/predict", json={"zone": 3, "features": valid_features_zone_3})
         data = response.json()
 
         if response.status_code == 200:
@@ -127,7 +127,7 @@ class TestPredictEndpoint:
             "humidity": 65.2
             # Faltan muchas features requeridas
         }
-        response = client.post("/predict", json={"features": incomplete_features})
+        response = client.post("/predict", json={"zone": 1, "features": incomplete_features})
         # Puede retornar 422 (validacion), 400 (bad request), o 503 (servicio no disponible)
         assert response.status_code in [400, 422, 503]
 
@@ -137,12 +137,12 @@ class TestPredictEndpoint:
             "temperature": "invalid_string",  # Deberia ser float
             "humidity": 65.2,
         }
-        response = client.post("/predict", json={"features": invalid_features})
+        response = client.post("/predict", json={"zone": 1, "features": invalid_features})
         assert response.status_code == 422
 
     def test_predict_without_features_key_returns_422(self, client):
         """Debe retornar 422 si no se envia el campo 'features'."""
-        response = client.post("/predict", json={"wrong_key": {}})
+        response = client.post("/predict", json={"zone": 1, "wrong_key": {}})
         assert response.status_code == 422
 
 

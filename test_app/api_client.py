@@ -59,12 +59,14 @@ class APIClient:
             logger.error(f"Error en health check: {e}")
             raise
 
-    def predict(self, features: Dict[str, float]) -> Dict[str, Any]:
+    def predict(self, zone: int, features: Dict[str, float]) -> Dict[str, Any]:
         """
         Hace una predicción usando el modelo champion.
 
         Parameters
         ----------
+        zone : int
+            Zona para la predicción (1, 2 o 3)
         features : Dict[str, float]
             Features para la predicción
 
@@ -79,6 +81,7 @@ class APIClient:
             Si hay error en la petición
         """
         payload = {
+            "zone": zone,
             "features": features
         }
 

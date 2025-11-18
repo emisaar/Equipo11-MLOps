@@ -195,7 +195,7 @@ class TestRunner:
         for i, features in enumerate(batch):
             try:
                 # Hacer predicción
-                prediction = self.api_client.predict(features)
+                prediction = self.api_client.predict(feature_zone, features)
                 predicted_value = prediction['prediction']
                 model_name = prediction['model_name']
 

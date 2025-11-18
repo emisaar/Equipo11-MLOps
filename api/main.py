@@ -491,6 +491,10 @@ async def manual_drift_check(
 
     try:
         drift_monitor = get_drift_monitor()
+        # Forzar flush del buffer de predicciones antes del check
+        prediction_logger = get_prediction_logger()
+        prediction_logger.flush()
+        logger.info("Buffer de predicciones vaciado antes del drift check")
     except RuntimeError:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

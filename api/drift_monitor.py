@@ -347,7 +347,7 @@ class RealTimeDriftMonitor:
         )
 
         # Check if we have enough data
-        if len(reference_data) < 100 or len(current_data) < 100:
+        if len(reference_data) < 50 or len(current_data) < 50:
             return None
 
         # Merge with actuals for performance monitoring
@@ -441,7 +441,7 @@ def initialize_monitoring(reference_data_path: Optional[Path] = None) -> None:
     """
     global prediction_logger, drift_monitor
 
-    prediction_logger = PredictionLogger()
+    prediction_logger = PredictionLogger(max_log_size=50)  # Vaciar buffer cada 50 predicciones
     drift_monitor = RealTimeDriftMonitor(
         prediction_logger=prediction_logger,
         reference_data_path=reference_data_path,
